@@ -53,8 +53,6 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	private List<AbstractStep> steps;
 
-	private com.intellinx.us.ps.implementation.infrastructure.StopWatch globalStopWatch;
-
 	private StandardEvaluationContext standardEvaluationContext;
 
 	// When
@@ -199,15 +197,6 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 	public void setKnowledgeSessionFactory(
 			KnowledgeSessionFactory knowledgeSessionFactory) {
 		this.knowledgeSessionFactory = knowledgeSessionFactory;
-	}
-
-	public final com.intellinx.us.ps.implementation.infrastructure.StopWatch getGlobalStopWatch() {
-		return globalStopWatch;
-	}
-
-	public final void setGlobalStopWatch(
-			com.intellinx.us.ps.implementation.infrastructure.StopWatch globalStopWatch) {
-		this.globalStopWatch = globalStopWatch;
 	}
 
 	public ApplicationContext getApplicationContext() {
