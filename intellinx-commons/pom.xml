@@ -146,4 +146,9 @@
 		</dependency>
 
 	</dependencies>
+	<name>Intellinx Commons</name>
+	<organization>
+		<name>Intellinx Software</name>
+		<url>www.intellinx-sw.com</url>
+	</organization>
 </project>
