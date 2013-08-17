@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="WINDOWS-1252" standalone="no"?>
+<jardesc>
+    <jar path="intellinx-commons/lib/com.intellinx.us.commons.jar"/>
+    <options buildIfNeeded="true" compress="true" descriptionLocation="/intellinx-commons/jar.jardesc" exportErrors="true" exportWarnings="true" includeDirectoryEntries="false" overwrite="false" saveDescription="true" storeRefactorings="false" useSourceFolders="false"/>
+    <storedRefactorings deprecationInfo="true" structuralOnly="false"/>
+    <selectedProjects/>
+    <manifest generateManifest="true" manifestLocation="" manifestVersion="1.0" reuseManifest="false" saveManifest="false" usesManifest="true">
+        <sealing sealJar="false">
+            <packagesToSeal/>
+            <packagesToUnSeal/>
+        </sealing>
+    </manifest>
+    <selectedElements exportClassFiles="true" exportJavaFiles="true" exportOutputFolder="false">
+        <file path="/intellinx-commons/package-descriptor.xml"/>
+        <javaElement handleIdentifier="=intellinx-commons/schema"/>
+        <file path="/intellinx-commons/.classpath"/>
+        <file path="/intellinx-commons/pom.xml"/>
+        <javaElement handleIdentifier="=intellinx-commons/model"/>
+        <file path="/intellinx-commons/.gitignore"/>
+        <file path="/intellinx-commons/.project"/>
+        <javaElement handleIdentifier="=intellinx-commons/src"/>
+    </selectedElements>
+</jardesc>
