@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://www.scipionyx.org/schema/service"
+	targetNamespace="http://www.scipionyx.org/schema/service"
+	elementFormDefault="qualified">
+
+	<element name="drools-entry-point">
+		<annotation>
+			<documentation>Defines an end-point capable of creating Drools
+				sessions (both stateless and stateful) and firing all rules using
+				message contents as parameters
+			</documentation>
+		</annotation>
+		<complexType>
+
+			<!-- -->
+			<attribute name="type" use="optional" default="stateless"
+				form="unqualified">
+				<annotation>
+					<documentation>This attribute defines the type of drools entry
+						point, which can be Stateless or Stateful
+					</documentation>
+				</annotation>
+				<simpleType>
+					<restriction base="string">
+						<enumeration value="stateless">
+							<annotation>
+								<documentation>Stateless Drools Sessions</documentation>
+							</annotation>
+						</enumeration>
+						<enumeration value="stateful">
+							<annotation>
+								<documentation>Stateful Drools Sessions</documentation>
+							</annotation>
+						</enumeration>
+					</restriction>
+				</simpleType>
+			</attribute>
+
+			<!-- -->
+			<attribute name="entityManagerFactory" use="optional" form="unqualified">
+				<annotation>
+					<documentation>EntityManagerFactory utilized</documentation>
+				</annotation>
+			</attribute>
+
+		</complexType>
+	</element>
+
+</schema>
