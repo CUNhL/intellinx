@@ -1,0 +1,7 @@
+# Tooling related information for the integration jms namespace
+http\://www.scipionyx.org/schema/service@name=Scipionyx Spring Service Utils
+http\://www.scipionyx.org/schema/service@prefix=scipionyx-service
+http\://www.scipionyx.org/schema/job@name=Scipionyx Spring Job Utils
+http\://www.scipionyx.org/schema/job@prefix=scipionyx-job
+
+                                                     

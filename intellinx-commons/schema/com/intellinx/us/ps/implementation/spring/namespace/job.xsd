@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema" targetNamespace="http://www.scipionyx.org/schema/job"
+	xmlns:tns="http://www.scipionyx.org/schema/job"
+	elementFormDefault="qualified">
+	<element name="lookup" type="tns:lookup"></element>
+
+
+
+	<complexType name="lookup">
+		<attribute name="name" type="string" use="required"></attribute>
+	</complexType>
+	
+</schema>
