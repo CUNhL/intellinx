@@ -1,5 +1,6 @@
 package com.intellinx.us.ps.implementation.spring.service.drools.common.step;
 
+import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.expression.Expression;
 
 /**
@@ -7,7 +8,9 @@ import org.springframework.expression.Expression;
  * @author RenatoM
  * 
  */
-public abstract class AbstractStep {
+public abstract class AbstractStep implements BeanNameAware {
+
+	private String beanName;
 
 	private Target target;
 
@@ -47,6 +50,14 @@ public abstract class AbstractStep {
 
 	public void setWhenExpressionParsed(Expression whenExpressionParsed) {
 		this.whenExpressionParsed = whenExpressionParsed;
+	}
+
+	public String getBeanName() {
+		return beanName;
+	}
+
+	public void setBeanName(String beanName) {
+		this.beanName = beanName;
 	}
 
 }

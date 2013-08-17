@@ -1,4 +1,4 @@
-package com.intellinx.us.ps.implementation.spring.service.drools;
+package com.intellinx.us.ps.implementation.spring.service.drools.common.query;
 
 import java.util.Calendar;
 

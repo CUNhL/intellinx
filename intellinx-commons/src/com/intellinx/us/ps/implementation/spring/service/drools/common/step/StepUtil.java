@@ -11,9 +11,9 @@ import javax.persistence.EntityManagerFactory;
 import org.drools.command.Command;
 import org.drools.command.CommandFactory;
 import org.drools.runtime.StatelessKnowledgeSession;
+import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.integration.Message;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.util.Assert;
@@ -27,7 +27,12 @@ import com.intellinx.us.ps.implementation.spring.service.drools.stateless.Knowle
  */
 public class StepUtil {
 
-	private SpelExpressionParser parser = new SpelExpressionParser();
+	// private SpelExpressionParser parser = new SpelExpressionParser();
+	private SpelExpressionParser parser = null;
+
+	public StepUtil(SpelExpressionParser parser) {
+		this.parser = parser;
+	}
 
 	/**
 	 * 
@@ -49,7 +54,6 @@ public class StepUtil {
 
 				String expressionString = step.getQuery().getParameters()
 						.get(key);
-
 				step.getQuery().getParametersExpressions()
 						.put(key, parser.parseExpression(expressionString));
 
@@ -83,7 +87,7 @@ public class StepUtil {
 	 * @param commands
 	 * @param message
 	 * @param knowledgeSession
-	 * @param standardEvaluationContext
+	 * @param evaluationContext
 	 * @param step
 	 * @param entityManagerFactory
 	 * @throws SecurityException
@@ -95,7 +99,7 @@ public class StepUtil {
 	public void createBatchExecutionCommand(KnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message,
 			StatelessKnowledgeSession knowledgeSession,
-			StandardEvaluationContext standardEvaluationContext, HqlStep step,
+			EvaluationContext evaluationContext, HqlStep step,
 			EntityManagerFactory entityManagerFactory)
 			throws SecurityException, IllegalArgumentException,
 			NoSuchMethodException, IllegalAccessException,
@@ -105,7 +109,7 @@ public class StepUtil {
 				.getTransactionalEntityManager(entityManagerFactory);
 
 		List<?> objects = service.executeQuery(step.getQuery(), message,
-				entityManager);
+				entityManager, evaluationContext);
 
 		addCommands(objects, commands, step);
 
@@ -129,7 +133,7 @@ public class StepUtil {
 	public void createBatchExecutionCommand(KnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message,
 			StatelessKnowledgeSession knowledgeSession,
-			StandardEvaluationContext context, ExpressionStep step,
+			EvaluationContext context, ExpressionStep step,
 			EntityManagerFactory entityManagerFactory)
 			throws SecurityException, IllegalArgumentException,
 			NoSuchMethodException, IllegalAccessException,

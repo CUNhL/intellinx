@@ -1,4 +1,4 @@
-package com.intellinx.us.ps.implementation.spring.service.drools;
+package com.intellinx.us.ps.implementation.spring.service.drools.common;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -14,8 +14,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.integration.Message;
+
+import com.intellinx.us.ps.implementation.spring.service.drools.common.query.LoadDataQuery;
 
 /**
  * 
@@ -53,27 +57,27 @@ public class AbstractDroolsService implements BeanNameAware {
 	 * @throws InvocationTargetException
 	 */
 	public List<?> executeQuery(LoadDataQuery loadDataQuery,
-			Message<?> message, EntityManager entityManager)
-			throws SecurityException, IllegalArgumentException,
-			NoSuchMethodException, IllegalAccessException,
-			InvocationTargetException {
+			Message<?> message, EntityManager entityManager,
+			EvaluationContext evaluationContext) throws SecurityException,
+			IllegalArgumentException, NoSuchMethodException,
+			IllegalAccessException, InvocationTargetException {
 
 		StopWatch stopWatch = null;
 
 		if (LOGGER_PERFORMANCE.isDebugEnabled())
-			stopWatch = new Slf4JStopWatch("AbstractDroolsService",
-					"executeQuery-start", LOGGER_PERFORMANCE);
-
-		if (!loadDataQuery.isActive())
-			return null;
+			stopWatch = new Slf4JStopWatch("AbstractDroolsService"
+					+ loadDataQuery.getBeanName(), "executeQuery-start",
+					LOGGER_PERFORMANCE);
 
 		Query query = entityManager.createQuery(loadDataQuery.getQuery());
 
 		if (loadDataQuery.getParameters() != null)
+
 			for (String key : loadDataQuery.getParameters().keySet()) {
+
 				Expression expression = loadDataQuery
 						.getParametersExpressions().get(key);
-				Object value = expression.getValue(message);
+				Object value = expression.getValue(evaluationContext, message);
 				if (LOGGER.isDebugEnabled())
 					LOGGER.debug("Setting Query parameter: " + key + ", value:"
 							+ value);
@@ -81,15 +85,10 @@ public class AbstractDroolsService implements BeanNameAware {
 			}
 
 		if (loadDataQuery.isReadOnly()) {
-			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Query set to QUERY_READ_ONLY");
 			query.setHint(QUERY_HINT_READ_ONLY, Boolean.valueOf(true));
 		}
 
 		if (loadDataQuery.isCacheable()) {
-			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Query set to QUERY_CACHEABLE for the region ("
-						+ loadDataQuery.getCacheRegion() + ")");
 			query.setHint(QUERY_HINT_CACHEABLE, Boolean.valueOf(true));
 			if (loadDataQuery.getCacheRegion() != null)
 				query.setHint(QUERY_HINT_CACHE_REGION,
@@ -99,8 +98,10 @@ public class AbstractDroolsService implements BeanNameAware {
 		List<?> objects = query.getResultList();
 
 		if (LOGGER_PERFORMANCE.isDebugEnabled())
-			stopWatch.stop("AbstractDroolsService", "executeQuery-End ("
-					+ objects.size() + ")");
+			stopWatch.stop(
+					"AbstractDroolsService-" + loadDataQuery.getBeanName(),
+					"executeQuery-End ( number of objects obtained from the query : "
+							+ objects.size() + ")");
 
 		return objects;
 	}
@@ -115,8 +116,9 @@ public class AbstractDroolsService implements BeanNameAware {
 	 * @throws IllegalAccessException
 	 * @throws InvocationTargetException
 	 */
-	public List<Object> executeQueries(List<LoadDataQuery> queries,
-			Message<?> message, EntityManager entityManager)
+	protected List<Object> executeQueries(List<LoadDataQuery> queries,
+			Message<?> message, EntityManager entityManager,
+			StandardEvaluationContext standardEvaluationContext)
 			throws SecurityException, IllegalArgumentException,
 			NoSuchMethodException, IllegalAccessException,
 			InvocationTargetException {
@@ -127,7 +129,7 @@ public class AbstractDroolsService implements BeanNameAware {
 			result = new ArrayList<Object>();
 			for (LoadDataQuery loadDataQuery : queries) {
 				List<?> objects = executeQuery(loadDataQuery, message,
-						entityManager);
+						entityManager, standardEvaluationContext);
 				if (objects != null && !objects.isEmpty())
 					result.addAll(objects);
 			}

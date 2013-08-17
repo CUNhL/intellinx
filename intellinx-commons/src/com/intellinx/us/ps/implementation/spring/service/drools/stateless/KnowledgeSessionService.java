@@ -2,13 +2,13 @@ package com.intellinx.us.ps.implementation.spring.service.drools.stateless;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.pool.ObjectPool;
 import org.apache.commons.pool.impl.StackObjectPool;
 import org.drools.command.Command;
 import org.drools.command.CommandFactory;
 import org.drools.runtime.StatelessKnowledgeSession;
+import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,16 +18,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.expression.BeanFactoryResolver;
 import org.springframework.expression.BeanResolver;
+import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.integration.Message;
 import org.springframework.integration.annotation.ServiceActivator;
-import org.springframework.integration.support.MessageBuilder;
 import org.springframework.integration.transformer.Transformer;
 import org.springframework.util.Assert;
 
-import com.intellinx.us.ps.implementation.spring.service.drools.AbstractDroolsService;
+import com.intellinx.us.ps.implementation.spring.service.drools.common.AbstractDroolsService;
 import com.intellinx.us.ps.implementation.spring.service.drools.common.step.AbstractStep;
 import com.intellinx.us.ps.implementation.spring.service.drools.common.step.ExpressionStep;
 import com.intellinx.us.ps.implementation.spring.service.drools.common.step.HqlStep;
@@ -44,6 +44,9 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 	private static final Logger LOGGER_PERFORMANCE = LoggerFactory
 			.getLogger("org.perf4j.TimingLogger");
 
+	private static final Logger LOGGER = LoggerFactory
+			.getLogger(KnowledgeSessionService.class);
+
 	@Autowired
 	private ApplicationContext applicationContext;
 
@@ -53,7 +56,7 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	private List<AbstractStep> steps;
 
-	private StandardEvaluationContext standardEvaluationContext;
+	private EvaluationContext evaluationContext;
 
 	// When
 
@@ -61,14 +64,25 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	private Expression calculatedWhenExpression;
 
+	private int poolSize;
+
+	StepUtil stepUtil;
+
 	/**
 	 * 
 	 */
 	@Override
 	public void afterPropertiesSet() throws Exception {
 
-		StepUtil stepUtil = new StepUtil();
+		Assert.notNull(knowledgeSessionFactory);
+		Assert.notNull(getBeanName(), "Bean Name is required");
+		Assert.notNull(applicationContext);
+		Assert.isTrue(poolSize != 0,
+				"The attribute pool size shall be provided");
 
+		stepUtil = new StepUtil(new SpelExpressionParser());
+
+		// Prepare Steps
 		if (steps != null)
 
 			for (AbstractStep step : steps) {
@@ -89,18 +103,16 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			calculatedWhenExpression = parser.parseExpression(when);
 		}
 
-		Assert.notNull(knowledgeSessionFactory);
-
 		// Pool of Drools Sessions
 		pool = new StackObjectPool<StatelessKnowledgeSession>(
-				knowledgeSessionFactory, 5);
-
-		Assert.notNull(applicationContext);
+				knowledgeSessionFactory, getPoolSize());
 
 		// Evaluation Context
-		standardEvaluationContext = new StandardEvaluationContext();
+		StandardEvaluationContext standardEvaluationContext = new StandardEvaluationContext();
 		BeanResolver beanResolver = new BeanFactoryResolver(applicationContext);
 		standardEvaluationContext.setBeanResolver(beanResolver);
+
+		evaluationContext = standardEvaluationContext;
 
 	}
 
@@ -113,18 +125,15 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 		// When for the Bean
 		if (calculatedWhenExpression != null
-				&& !calculatedWhenExpression.getValue(
-						standardEvaluationContext, message, Boolean.class)) {
+				&& !calculatedWhenExpression.getValue(evaluationContext,
+						message, Boolean.class)) {
 			return message;
 		}
 
-		StepUtil stepUtil = new StepUtil();
-
-		org.perf4j.StopWatch stopWatch = null;
-
-		if (LOGGER_PERFORMANCE.isDebugEnabled())
+		StopWatch stopWatch = null;
+		if (LOGGER_PERFORMANCE.isInfoEnabled())
 			stopWatch = new Slf4JStopWatch("KnowledgeSessionService",
-					"start-transform", LOGGER_PERFORMANCE);
+					this.getBeanName(), LOGGER_PERFORMANCE);
 
 		StatelessKnowledgeSession knowledgeSession = null;
 
@@ -132,59 +141,51 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 			knowledgeSession = pool.borrowObject();
 
-			if (LOGGER_PERFORMANCE.isDebugEnabled())
-				stopWatch.lap("KnowledgeSessionService",
-						"Transform-After Create knowledgeSession");
-
-			if (LOGGER_PERFORMANCE.isDebugEnabled())
-				stopWatch.lap("KnowledgeSessionService",
-						"Transform-After prepare message");
-
 			List<Command<?>> commands = new ArrayList<Command<?>>();
+
 			for (AbstractStep step : steps) {
+
 				if (step instanceof HqlStep) {
 					stepUtil.createBatchExecutionCommand(this, commands,
-							message, knowledgeSession,
-							standardEvaluationContext, (HqlStep) step,
-							getEntityManagerFactory());
+							message, knowledgeSession, evaluationContext,
+							(HqlStep) step, getEntityManagerFactory());
 				} else {
 					stepUtil.createBatchExecutionCommand(this, commands,
-							message, knowledgeSession,
-							standardEvaluationContext, (ExpressionStep) step,
-							getEntityManagerFactory());
+							message, knowledgeSession, evaluationContext,
+							(ExpressionStep) step, getEntityManagerFactory());
 				}
+
+				if (LOGGER_PERFORMANCE.isDebugEnabled())
+					stopWatch.lap("KnowledgeSessionService", "After Step ["
+							+ step.getBeanName() + "/"
+							+ step.getClass().getSimpleName() + "] executed");
+
 			}
 
+			// Execute the commands prepared
 			knowledgeSession
 					.execute(CommandFactory.newBatchExecution(commands));
 
-			if (LOGGER_PERFORMANCE.isDebugEnabled())
+			if (LOGGER_PERFORMANCE.isTraceEnabled())
 				stopWatch.lap("KnowledgeSessionService",
 						"Transform-After execute command");
 
 		} catch (Exception e) {
-			e.printStackTrace();
+			LOGGER.error(
+					"Error during the execution of stateless drools for the message ["
+							+ message.toString() + "]", e);
 		} finally {
 			try {
 				pool.returnObject(knowledgeSession);
 			} catch (Exception e) {
-				e.printStackTrace();
+				LOGGER.error(
+						"Error returning session to the pool for the message ["
+								+ message.toString() + "]", e);
 			}
 		}
 
-		if (LOGGER_PERFORMANCE.isDebugEnabled())
+		if (LOGGER_PERFORMANCE.isInfoEnabled())
 			stopWatch.stop("KnowledgeSessionService", "Done-transform");
-
-		// Handle new header information
-		@SuppressWarnings("unchecked")
-		Map<String, ?> map = (Map<String, ?>) message.getHeaders().get(
-				"MESSAGE_HEADER");
-
-		if (map != null && !map.isEmpty()) {
-			MessageBuilder<?> builder = MessageBuilder.fromMessage(message);
-			builder.copyHeaders(map);
-			return builder.build();
-		}
 
 		return message;
 
@@ -221,6 +222,14 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	public void setWhen(String when) {
 		this.when = when;
+	}
+
+	public int getPoolSize() {
+		return poolSize;
+	}
+
+	public void setPoolSize(int poolSize) {
+		this.poolSize = poolSize;
 	}
 
 }

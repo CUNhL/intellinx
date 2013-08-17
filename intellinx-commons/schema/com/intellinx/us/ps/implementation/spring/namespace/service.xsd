@@ -3,6 +3,48 @@
 	targetNamespace="http://www.scipionyx.org/schema/service"
 	elementFormDefault="qualified">
 
+
+	<element name="drools-hsql-action">
+		<annotation>
+			<documentation>Action that will be executed prior to the
+				drools
+				execution loading information to the target area within the
+				Drools
+				memory
+			</documentation>
+		</annotation>
+		<complexType>
+			<attribute name="target" use="required">
+				<annotation>
+					<documentation>Defines what area on Drools memory the loaded
+						information will be sent to
+					</documentation>
+				</annotation>
+			</attribute>
+		</complexType>
+	</element>
+
+	<element name="drools-hsql-query">
+		<annotation>
+			<documentation>
+			</documentation>
+		</annotation>
+		<complexType>
+			<attribute name="hql" use="required">
+				<annotation>
+					<documentation>
+					</documentation>
+				</annotation>
+			</attribute>
+			<attribute name="hql" use="required">
+				<annotation>
+					<documentation>
+					</documentation>
+				</annotation>
+			</attribute>
+		</complexType>
+	</element>
+
 	<element name="drools-entry-point">
 		<annotation>
 			<documentation>Defines an end-point capable of creating Drools

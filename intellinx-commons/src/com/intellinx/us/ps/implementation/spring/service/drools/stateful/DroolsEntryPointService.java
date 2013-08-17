@@ -34,7 +34,7 @@ import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.util.Assert;
 
 import com.intellinx.bom.entity.BasicIncident;
-import com.intellinx.us.ps.implementation.spring.service.drools.AbstractDroolsService;
+import com.intellinx.us.ps.implementation.spring.service.drools.common.AbstractDroolsService;
 import com.intellinx.us.ps.implementation.spring.service.drools.common.step.AbstractStep;
 
 /**

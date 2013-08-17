@@ -1,6 +1,6 @@
 package com.intellinx.us.ps.implementation.spring.service.drools.common.step;
 
-import com.intellinx.us.ps.implementation.spring.service.drools.LoadDataQuery;
+import com.intellinx.us.ps.implementation.spring.service.drools.common.query.LoadDataQuery;
 
 /**
  * 

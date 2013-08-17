@@ -26,6 +26,9 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.util.Assert;
 
+import com.intellinx.us.ps.implementation.spring.service.drools.common.AbstractDroolsService;
+import com.intellinx.us.ps.implementation.spring.service.drools.common.query.LoadDataQuery;
+
 /**
  * 
  * @author RenatoM
@@ -76,13 +79,13 @@ public class DroolsSessionService extends AbstractDroolsService implements
 				Assert.notNull(query.getBeanName(),
 						"please provide the query [id]");
 				Assert.notNull(query.getQuery(), "please provide the [query]");
-				Assert.isTrue(
-						(query.getRefreshRate() != null && query
-								.getRefreshRateType() != null)
-								|| (query.getRefreshRate() == null && query
-										.getRefreshRateType() == null),
-						"please provide [refreshRate] and [refreshRateType] parameters");
-
+				/*
+				 * Assert.isTrue( (query.getRefreshRate() != null && query
+				 * .getRefreshRateType() != null) || (query.getRefreshRate() ==
+				 * null && query .getRefreshRateType() == null),
+				 * "please provide [refreshRate] and [refreshRateType] parameters"
+				 * );
+				 */
 				timeoutMap.put(query, Calendar.getInstance());
 				loadQueryData(query);
 
@@ -114,13 +117,12 @@ public class DroolsSessionService extends AbstractDroolsService implements
 
 		WorkingMemoryEntryPoint entryPoint = null;
 
-		if (query.getEntryPoint() != null) {
-			entryPoint = knowledgeSession.getWorkingMemoryEntryPoint(query
-					.getEntryPoint());
-			Assert.notNull(entryPoint,
-					"The entry point [" + query.getEntryPoint()
-							+ "] must be defined on the drl");
-		}
+		/*
+		 * if (query.getEntryPoint() != null) { entryPoint =
+		 * knowledgeSession.getWorkingMemoryEntryPoint(query .getEntryPoint());
+		 * Assert.notNull(entryPoint, "The entry point [" +
+		 * query.getEntryPoint() + "] must be defined on the drl"); }
+		 */
 
 		Assert.isNull(
 				query.getParameters(),
@@ -128,21 +130,20 @@ public class DroolsSessionService extends AbstractDroolsService implements
 						+ getBeanName()
 						+ ")Queries loaded during the start of the Rule Session (when=AFTER_LOADING_RULE_ENGINE_SESSION), shall not have parameters");
 
-		List<?> objects = executeQuery(query, null, entityManager);
+		List<?> objects = executeQuery(query, null, entityManager, null);
 
 		if (objects != null) {
 
 			List<Command<?>> cmds = new ArrayList<Command<?>>();
 
 			// Retract previous
-			if (query.getFactHandles() != null
-					&& !query.getFactHandles().isEmpty()) {
-				for (FactHandle factHandle : query.getFactHandles()) {
-					Command<?> retractCommand = CommandFactory
-							.newRetract(factHandle);
-					cmds.add(retractCommand);
-				}
-			}
+			/*
+			 * if (query.getFactHandles() != null &&
+			 * !query.getFactHandles().isEmpty()) { for (FactHandle factHandle :
+			 * query.getFactHandles()) { Command<?> retractCommand =
+			 * CommandFactory .newRetract(factHandle); cmds.add(retractCommand);
+			 * } }
+			 */
 			Command<?> insertElementsCommand = CommandFactory
 					.newInsertElements(
 							objects,
@@ -161,10 +162,10 @@ public class DroolsSessionService extends AbstractDroolsService implements
 
 			if (results.getFactHandle(outIdentifier) != null) {
 
-				@SuppressWarnings("unchecked")
+				@SuppressWarnings({ "unchecked", "unused" })
 				List<FactHandle> factHandles = (List<FactHandle>) results
 						.getFactHandle(outIdentifier);
-				query.setFactHandles(factHandles);
+				/* query.setFactHandles(factHandles); */
 
 			}
 
@@ -202,38 +203,37 @@ public class DroolsSessionService extends AbstractDroolsService implements
 						"getKnowledgeSession()-Start", LOGGER_PERFORMANCE);
 
 			// Verify preloaded data age
-			for (LoadDataQuery query : timeoutMap.keySet()) {
+			for (@SuppressWarnings("unused")
+			LoadDataQuery query : timeoutMap.keySet()) {
 
-				if (query.getRefreshRate() != null
-						&& query.getRefreshRateType() != null) {
-
-					Calendar whenLoaded = timeoutMap.get(query);
-					Calendar whenTimeOut = Calendar.getInstance();
-
-					whenTimeOut.add(query.getRefreshRateType().toCalendar(),
-							-query.getRefreshRate());
-
-					if (whenLoaded.before(whenTimeOut)) {
-						// Move the date for the next expiration..
-						if (LOGGER_PERFORMANCE.isDebugEnabled()) {
-							stopWatch.lap("DroolsEntryPointService",
-									"getKnowledgeSession()-need to refresh session data["
-											+ query.getBeanName() + "]");
-						}
-						whenLoaded.add(query.getRefreshRateType().toCalendar(),
-								query.getRefreshRate());
-
-						loadQueryData(query);
-
-						if (LOGGER_PERFORMANCE.isDebugEnabled()) {
-							stopWatch.lap("DroolsEntryPointService",
-									"getKnowledgeSession()-after data loaded ["
-											+ query.getBeanName() + "]");
-						}
-					}
-
-				}
-
+				/*
+				 * if (query.getRefreshRate() != null &&
+				 * query.getRefreshRateType() != null) {
+				 * 
+				 * Calendar whenLoaded = timeoutMap.get(query); Calendar
+				 * whenTimeOut = Calendar.getInstance();
+				 * 
+				 * whenTimeOut.add(query.getRefreshRateType().toCalendar(),
+				 * -query.getRefreshRate());
+				 * 
+				 * if (whenLoaded.before(whenTimeOut)) { // Move the date for
+				 * the next expiration.. if
+				 * (LOGGER_PERFORMANCE.isDebugEnabled()) {
+				 * stopWatch.lap("DroolsEntryPointService",
+				 * "getKnowledgeSession()-need to refresh session data[" +
+				 * query.getBeanName() + "]"); }
+				 * whenLoaded.add(query.getRefreshRateType().toCalendar(),
+				 * query.getRefreshRate());
+				 * 
+				 * loadQueryData(query);
+				 * 
+				 * if (LOGGER_PERFORMANCE.isDebugEnabled()) {
+				 * stopWatch.lap("DroolsEntryPointService",
+				 * "getKnowledgeSession()-after data loaded [" +
+				 * query.getBeanName() + "]"); } }
+				 * 
+				 * }
+				 */
 			}
 
 			if (LOGGER_PERFORMANCE.isDebugEnabled())
