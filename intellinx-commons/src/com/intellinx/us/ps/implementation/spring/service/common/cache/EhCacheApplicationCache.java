@@ -38,13 +38,16 @@ public class EhCacheApplicationCache<T> extends AbstractApplicationCache<T>
 	public void afterPropertiesSet() throws Exception {
 		//
 		super.afterPropertiesSet();
-		
+
 		//
 		Assert.notNull(region, "Region is required");
 
 		// Start Cache Manager
 		cacheManager = CacheManager.getInstance();
 		cache = cacheManager.getCache(region);
+
+		Assert.notNull(cache,
+				"Cache Name was not found on ehcache configuraiton file, please add");
 
 	}
 
@@ -61,7 +64,8 @@ public class EhCacheApplicationCache<T> extends AbstractApplicationCache<T>
 	 */
 	@Override
 	public Object get(Message<T> message) {
-		return cache.get(keyValue(message));
+		Element element = cache.get(keyValue(message));
+		return element.getObjectValue();
 	}
 
 	@Override
