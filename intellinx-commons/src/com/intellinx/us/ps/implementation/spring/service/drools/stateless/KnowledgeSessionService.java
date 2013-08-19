@@ -66,7 +66,7 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	private int poolSize;
 
-	StepUtil stepUtil;
+	private StepUtil stepUtil;
 
 	/**
 	 * 
@@ -144,6 +144,11 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			List<Command<?>> commands = new ArrayList<Command<?>>();
 
 			for (AbstractStep step : steps) {
+
+				if (stepUtil.createBatchExecutionCommandFromCache(this,
+						commands, message, knowledgeSession, step)) {
+					continue;
+				}
 
 				if (step instanceof HqlStep) {
 					stepUtil.createBatchExecutionCommand(this, commands,

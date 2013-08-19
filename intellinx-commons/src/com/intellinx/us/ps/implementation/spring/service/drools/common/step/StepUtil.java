@@ -18,6 +18,7 @@ import org.springframework.integration.Message;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.util.Assert;
 
+import com.intellinx.us.ps.implementation.spring.service.common.cache.IApplicationCache;
 import com.intellinx.us.ps.implementation.spring.service.drools.stateless.KnowledgeSessionService;
 
 /**
@@ -27,7 +28,6 @@ import com.intellinx.us.ps.implementation.spring.service.drools.stateless.Knowle
  */
 public class StepUtil {
 
-	// private SpelExpressionParser parser = new SpelExpressionParser();
 	private SpelExpressionParser parser = null;
 
 	public StepUtil(SpelExpressionParser parser) {
@@ -90,12 +90,50 @@ public class StepUtil {
 	 * @param evaluationContext
 	 * @param step
 	 * @param entityManagerFactory
+	 * @return
 	 * @throws SecurityException
 	 * @throws IllegalArgumentException
 	 * @throws NoSuchMethodException
 	 * @throws IllegalAccessException
 	 * @throws InvocationTargetException
 	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public boolean createBatchExecutionCommandFromCache(
+			KnowledgeSessionService service, List<Command<?>> commands,
+			Message<?> message, StatelessKnowledgeSession knowledgeSession,
+			AbstractStep step) throws SecurityException,
+			IllegalArgumentException, NoSuchMethodException,
+			IllegalAccessException, InvocationTargetException {
+
+		// Check cache for the information to be added to the step
+		if (step.getApplicationCache() != null) {
+			IApplicationCache cache = step.getApplicationCache();
+			if (cache.isKeyInCache(message)) {
+				addCommands(cache.get(message), commands, step);
+				return true;
+			}
+		}
+
+		return false;
+
+	}
+
+	/**
+	 * 
+	 * @param service
+	 * @param commands
+	 * @param message
+	 * @param knowledgeSession
+	 * @param evaluationContext
+	 * @param step
+	 * @param entityManagerFactory
+	 * @throws SecurityException
+	 * @throws IllegalArgumentException
+	 * @throws NoSuchMethodException
+	 * @throws IllegalAccessException
+	 * @throws InvocationTargetException
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void createBatchExecutionCommand(KnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message,
 			StatelessKnowledgeSession knowledgeSession,
@@ -112,6 +150,11 @@ public class StepUtil {
 				entityManager, evaluationContext);
 
 		addCommands(objects, commands, step);
+
+		if (step.getApplicationCache() != null) {
+			IApplicationCache cache = step.getApplicationCache();
+			cache.put(objects, message);
+		}
 
 	}
 
@@ -130,6 +173,7 @@ public class StepUtil {
 	 * @throws IllegalAccessException
 	 * @throws InvocationTargetException
 	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void createBatchExecutionCommand(KnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message,
 			StatelessKnowledgeSession knowledgeSession,
@@ -142,6 +186,11 @@ public class StepUtil {
 		Object value = step.getExpressionsParsed().getValue(context, message);
 
 		addCommands(value, commands, step);
+
+		if (step.getApplicationCache() != null) {
+			IApplicationCache cache = step.getApplicationCache();
+			cache.put(value, message);
+		}
 
 	}
 

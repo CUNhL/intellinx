@@ -8,6 +8,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Query;
 
+import org.hibernate.ejb.QueryHints;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.Logger;
@@ -33,12 +34,6 @@ public class AbstractDroolsService implements BeanNameAware {
 
 	private static final Logger LOGGER_PERFORMANCE = LoggerFactory
 			.getLogger("org.perf4j.TimingLogger");
-
-	private static final String QUERY_HINT_READ_ONLY = "org.hibernate.readOnly";
-
-	private static final String QUERY_HINT_CACHEABLE = "org.hibernate.cacheable";
-
-	private static final String QUERY_HINT_CACHE_REGION = "org.hibernate.cacheRegion";
 
 	private String beanName;
 
@@ -84,15 +79,24 @@ public class AbstractDroolsService implements BeanNameAware {
 				query.setParameter(key, value);
 			}
 
+		if (LOGGER_PERFORMANCE.isDebugEnabled())
+			stopWatch.stop(
+					"AbstractDroolsService-" + loadDataQuery.getBeanName(),
+					"query object built");
+
 		if (loadDataQuery.isReadOnly()) {
-			query.setHint(QUERY_HINT_READ_ONLY, Boolean.valueOf(true));
+			query.setHint(QueryHints.HINT_READONLY, true);
 		}
 
 		if (loadDataQuery.isCacheable()) {
-			query.setHint(QUERY_HINT_CACHEABLE, Boolean.valueOf(true));
+			query.setHint(QueryHints.HINT_CACHEABLE, true);
 			if (loadDataQuery.getCacheRegion() != null)
-				query.setHint(QUERY_HINT_CACHE_REGION,
+				query.setHint(QueryHints.HINT_CACHE_REGION,
 						loadDataQuery.getCacheRegion());
+		}
+
+		if (loadDataQuery.getMaxresults() != null) {
+			query.setMaxResults(loadDataQuery.getMaxresults().intValue());
 		}
 
 		List<?> objects = query.getResultList();
@@ -100,8 +104,7 @@ public class AbstractDroolsService implements BeanNameAware {
 		if (LOGGER_PERFORMANCE.isDebugEnabled())
 			stopWatch.stop(
 					"AbstractDroolsService-" + loadDataQuery.getBeanName(),
-					"executeQuery-End ( number of objects obtained from the query : "
-							+ objects.size() + ")");
+					"executeQuery-End ()");
 
 		return objects;
 	}

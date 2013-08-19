@@ -11,6 +11,7 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.Query;
 
 import org.apache.commons.lang.StringUtils;
+import org.hibernate.ejb.QueryHints;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.Logger;
@@ -48,12 +49,6 @@ public class LookupService implements InitializingBean, Transformer,
 	private EntityManagerFactory entityManagerFactory;
 
 	private List<HqlStep> steps;
-
-	protected static final String QUERY_HINT_READ_ONLY = "org.hibernate.readOnly";
-
-	protected static final String QUERY_HINT_CACHEABLE = "org.hibernate.cacheable";
-
-	protected static final String QUERY_HINT_CACHE_REGION = "org.hibernate.cacheRegion";
 
 	protected static final String CORRELATION_VALUE_PREFIX = "###LOOKUP-";
 
@@ -297,7 +292,8 @@ public class LookupService implements InitializingBean, Transformer,
 		EntityManager entityManager = EntityManagerFactoryUtils
 				.getTransactionalEntityManager(getEntityManagerFactory());
 
-		List<HqlStep> _configurations = getConfigurations(message, isPersistMode);
+		List<HqlStep> _configurations = getConfigurations(message,
+				isPersistMode);
 		for (HqlStep configuration : _configurations) {
 
 			if (LOGGER.isDebugEnabled())
@@ -668,22 +664,15 @@ public class LookupService implements InitializingBean, Transformer,
 		}
 
 		if (configuration.isCacheable()) {
-			if (LOGGER.isTraceEnabled())
-				LOGGER.trace("Setting Cacheble");
-			query.setHint(QUERY_HINT_CACHEABLE, true);
+			query.setHint(QueryHints.HINT_CACHEABLE, true);
 		}
 
 		if (configuration.isReadOnly()) {
-			if (LOGGER.isTraceEnabled())
-				LOGGER.trace("Setting ReadOnly");
-			query.setHint(QUERY_HINT_READ_ONLY, true);
+			query.setHint(QueryHints.HINT_READONLY, true);
 		}
 
 		if (!StringUtils.isEmpty(configuration.getCacheRegion())) {
-			if (LOGGER.isTraceEnabled()) {
-				LOGGER.trace("Setting Cache Region");
-			}
-			query.setHint(QUERY_HINT_CACHE_REGION,
+			query.setHint(QueryHints.HINT_CACHE_REGION,
 					configuration.getCacheRegion());
 		}
 

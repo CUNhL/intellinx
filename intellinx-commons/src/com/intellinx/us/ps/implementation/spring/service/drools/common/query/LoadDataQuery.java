@@ -29,7 +29,7 @@ public class LoadDataQuery implements BeanNameAware, Serializable {
 
 	private String cacheRegion;
 
-	private ResultStore resultStore;
+	private Integer maxresults;
 
 	public String getBeanName() {
 		return beanName;
@@ -88,12 +88,12 @@ public class LoadDataQuery implements BeanNameAware, Serializable {
 		this.cacheRegion = cacheRegion;
 	}
 
-	public ResultStore getResultStore() {
-		return resultStore;
+	public Integer getMaxresults() {
+		return maxresults;
 	}
 
-	public void setResultStore(ResultStore resultStore) {
-		this.resultStore = resultStore;
+	public void setMaxresults(Integer maxresults) {
+		this.maxresults = maxresults;
 	}
 
 }

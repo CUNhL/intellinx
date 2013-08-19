@@ -3,6 +3,8 @@ package com.intellinx.us.ps.implementation.spring.service.drools.common.step;
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.expression.Expression;
 
+import com.intellinx.us.ps.implementation.spring.service.common.cache.IApplicationCache;
+
 /**
  * 
  * @author RenatoM
@@ -19,6 +21,8 @@ public abstract class AbstractStep implements BeanNameAware {
 	private String when;
 
 	private Expression whenExpressionParsed;
+
+	private IApplicationCache<?> applicationCache;
 
 	public Target getTarget() {
 		return target;
@@ -58,6 +62,14 @@ public abstract class AbstractStep implements BeanNameAware {
 
 	public void setBeanName(String beanName) {
 		this.beanName = beanName;
+	}
+
+	public IApplicationCache<?> getApplicationCache() {
+		return applicationCache;
+	}
+
+	public void setApplicationCache(IApplicationCache<?> applicationCache) {
+		this.applicationCache = applicationCache;
 	}
 
 }
