@@ -68,4 +68,12 @@ public class EhCacheApplicationCache<T> extends AbstractApplicationCache<T>
 		cache.put(element);
 	}
 
+	public String getRegion() {
+		return region;
+	}
+
+	public void setRegion(String region) {
+		this.region = region;
+	}
+
 }
