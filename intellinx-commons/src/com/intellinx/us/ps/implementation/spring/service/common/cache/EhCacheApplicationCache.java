@@ -36,7 +36,9 @@ public class EhCacheApplicationCache<T> extends AbstractApplicationCache<T>
 	 */
 	@Override
 	public void afterPropertiesSet() throws Exception {
-
+		//
+		super.afterPropertiesSet();
+		
 		//
 		Assert.notNull(region, "Region is required");
 

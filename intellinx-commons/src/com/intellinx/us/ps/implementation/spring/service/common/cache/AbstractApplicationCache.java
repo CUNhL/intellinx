@@ -1,6 +1,5 @@
 package com.intellinx.us.ps.implementation.spring.service.common.cache;
 
-import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -46,12 +45,13 @@ public abstract class AbstractApplicationCache<T> implements
 	 */
 	@Override
 	public void afterPropertiesSet() throws Exception {
-		//
+
+		// Assert block
 		Assert.notNull(parser);
+		Assert.notNull(key);
+
 		// Start key Expression
-		if (StringUtils.isNotEmpty(key)) {
-			keyExpression = parser.parseExpression(key);
-		}
+		keyExpression = parser.parseExpression(key);
 
 		// Evaluation Context
 		StandardEvaluationContext standardEvaluationContext = new StandardEvaluationContext();
