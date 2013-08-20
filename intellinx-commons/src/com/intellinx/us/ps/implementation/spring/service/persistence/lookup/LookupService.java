@@ -133,8 +133,9 @@ public class LookupService implements InitializingBean, Transformer,
 						return list;
 				}
 			} catch (Exception e) {
-				LOGGER.error("Message does not have correlation id, that should not be possible:"
-						+ message.toString());
+				LOGGER.error(
+						"Message does not have correlation id, that should not be possible:"
+								+ message.toString(), e);
 			}
 
 			return list;
@@ -329,7 +330,9 @@ public class LookupService implements InitializingBean, Transformer,
 				}
 
 			} catch (Exception e) {
-				e.printStackTrace();
+				LOGGER.error(
+						"Error during the transformation:" + message.toString(),
+						e);
 				break;
 			}
 
