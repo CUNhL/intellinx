@@ -56,7 +56,11 @@ public class EhCacheApplicationCache<T> extends AbstractApplicationCache<T>
 	 */
 	@Override
 	public boolean isKeyInCache(Message<T> message) {
-		return cache.isKeyInCache(keyValue(message));
+		Object key = keyValue(message);
+		if (cache.isKeyInCache(key)) {
+			return !cache.isExpired(cache.get(key));
+		}
+		return false;
 	}
 
 	/**
