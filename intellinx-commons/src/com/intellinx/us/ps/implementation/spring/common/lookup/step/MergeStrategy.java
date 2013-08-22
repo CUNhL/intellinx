@@ -1,0 +1,40 @@
+package com.intellinx.us.ps.implementation.spring.common.lookup.step;
+
+/**
+ * 
+ * How it works with LISTS ????
+ * 
+ * @author Renato Mendes
+ * 
+ */
+public enum MergeStrategy {
+
+	/**
+	 * No field will update records
+	 */
+	DO_NOT_MERGE_FIELDS,
+
+	/**
+	 * if the field contain value > message updates record if the field does not
+	 * contain value > message updates record
+	 */
+	MERGE_ALL_FIELDS,
+
+	/**
+	 * if the field contain value > message updates record if the field does not
+	 * contain value > message DOES NOT update record
+	 * 
+	 */
+	MERGE_NON_NULL_FIELDS,
+
+	/**
+	 * 
+	 */
+	USE_FIELD_BY_FIELD_STRATEGY,
+
+	/**
+	 * 
+	 */
+	FIELD_STRATEGY_MERGE_ALLWAYS, FIELD_STRATEGY_MERGE_IF_NOT_NULL
+
+}

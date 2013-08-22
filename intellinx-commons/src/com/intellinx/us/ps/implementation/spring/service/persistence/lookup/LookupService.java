@@ -19,9 +19,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.expression.BeanFactoryResolver;
+import org.springframework.expression.BeanResolver;
+import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.integration.Message;
 import org.springframework.integration.MessageHeaders;
 import org.springframework.integration.annotation.ServiceActivator;
@@ -29,7 +34,10 @@ import org.springframework.integration.support.MessageBuilder;
 import org.springframework.integration.transformer.Transformer;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 
+import com.intellinx.us.ps.implementation.spring.common.lookup.step.AbstractStep;
 import com.intellinx.us.ps.implementation.spring.common.lookup.step.HqlStep;
+import com.intellinx.us.ps.implementation.spring.common.lookup.step.LookupStepUtil;
+import com.intellinx.us.ps.implementation.spring.common.lookup.step.Merge;
 
 /**
  * 
@@ -48,7 +56,10 @@ public class LookupService implements InitializingBean, Transformer,
 	@Autowired
 	private EntityManagerFactory entityManagerFactory;
 
-	private List<HqlStep> steps;
+	@Autowired
+	private ApplicationContext applicationContext;
+
+	private List<AbstractStep> steps;
 
 	protected static final String CORRELATION_VALUE_PREFIX = "###LOOKUP-";
 
@@ -61,7 +72,7 @@ public class LookupService implements InitializingBean, Transformer,
 	//
 	public static final String HEADER_LOOKUP_ENTITY_ADDED = "LOOKUP_ENTITY_ADDED";
 
-	protected static final String POUND = "#";
+	public static final String POUND = "#";
 
 	private String when;
 
@@ -71,16 +82,37 @@ public class LookupService implements InitializingBean, Transformer,
 
 	private List<MergeService> mergeServices;
 
+	private EvaluationContext evaluationContext;
+
 	/**
 	 * 
 	 */
 	@Override
 	public void afterPropertiesSet() throws Exception {
+
 		ExpressionParser parser = new SpelExpressionParser();
-		if (when != null)
+		LookupStepUtil stepUtil = new LookupStepUtil(parser);
+
+		if (when != null) {
 			whenExpression = parser.parseExpression(when);
-		for (HqlStep step : steps)
-			handleStep(step, parser);
+		}
+
+		for (AbstractStep step : steps) {
+			if (step instanceof HqlStep) {
+				stepUtil.handleStep((HqlStep) step);
+			} else {
+				if (LOGGER.isWarnEnabled())
+					LOGGER.warn("unsupported Step [" + step.getBeanName() + "]");
+			}
+		}
+
+		// Evaluation Context
+		StandardEvaluationContext standardEvaluationContext = new StandardEvaluationContext();
+		BeanResolver beanResolver = new BeanFactoryResolver(applicationContext);
+		standardEvaluationContext.setBeanResolver(beanResolver);
+
+		evaluationContext = standardEvaluationContext;
+
 	}
 
 	/**
@@ -89,6 +121,7 @@ public class LookupService implements InitializingBean, Transformer,
 	@Override
 	@ServiceActivator
 	public Message<?> transform(Message<?> message) {
+
 		StopWatch stopWatch = null;
 
 		if (LOGGER_PERFORMANCE.isInfoEnabled())
@@ -107,14 +140,17 @@ public class LookupService implements InitializingBean, Transformer,
 	 * 
 	 * @return
 	 */
-	private List<HqlStep> getConfigurations(Message<?> message,
+	private List<AbstractStep> getActiveSteps(Message<?> message,
 			boolean isPersistMode) {
+
 		if (!isPersistMode) {
 			return steps;
 		} else {
-			List<HqlStep> list = new ArrayList<HqlStep>();
+
+			List<AbstractStep> activeSteps = new ArrayList<AbstractStep>();
 
 			try {
+
 				String stepBeanName = ((String) message.getHeaders().get(
 						MessageHeaders.CORRELATION_ID));
 
@@ -127,143 +163,20 @@ public class LookupService implements InitializingBean, Transformer,
 				stepBeanName = stepBeanName.substring(0,
 						stepBeanName.indexOf("-["));
 
-				for (HqlStep step : steps) {
-					list.add(step);
+				for (AbstractStep step : steps) {
+					activeSteps.add(step);
 					if (step.getBeanName().equals(stepBeanName))
-						return list;
+						return activeSteps;
 				}
+
 			} catch (Exception e) {
 				LOGGER.error(
 						"Message does not have correlation id, that should not be possible:"
 								+ message.toString(), e);
 			}
 
-			return list;
+			return activeSteps;
 		}
-	}
-
-	/**
-	 * 
-	 * @param targetobject
-	 * @return
-	 */
-	private String getTargetObjectOriginalArray(String targetObject) {
-		return targetObject.substring(0, targetObject.indexOf(POUND) - 1);
-	}
-
-	/**
-	 * 
-	 * @param step
-	 */
-	private void handleStep(HqlStep step, ExpressionParser parser) {
-
-		Expression expression = null;
-
-		// --------------------
-		// Initialize Objects
-		step.setTargetObjectsExpressions(new HashMap<String, Map<Long, Expression>>());
-		step.setTargetObjectsOriginalArrayExpressions(new HashMap<String, Expression>());
-
-		// Check target Objects, and add to the List of TargetObjects
-		if (step.getTargetObjects() == null) {
-			step.setTargetObjects(new ArrayList<String>());
-		}
-
-		if (step.getTargetObject() != null) {
-			step.getTargetObjects().add(step.getTargetObject());
-		}
-
-		for (String targetObject : step.getTargetObjects()) {
-
-			Map<Long, Expression> map = new HashMap<Long, Expression>();
-
-			if (!targetObject.contains(POUND)) {
-
-				expression = parser.parseExpression(targetObject);
-				map.put(0L, expression);
-
-				step.getTargetObjectsOriginalArrayExpressions().put(
-						targetObject, null);
-
-			} else {
-
-				String targetObjectsOriginalArray = getTargetObjectOriginalArray(targetObject);
-
-				expression = parser.parseExpression(targetObjectsOriginalArray);
-
-				step.getTargetObjectsOriginalArrayExpressions().put(
-						targetObject, expression);
-
-				for (long j = 0; j < 1000; j++) {
-
-					expression = parser.parseExpression(targetObject.replace(
-							POUND, String.valueOf(j)));
-					map.put(j, expression);
-
-				}
-
-			}
-
-			step.getTargetObjectsExpressions().put(targetObject, map);
-
-		}
-
-		// --------------------
-		if (step.getWhen() != null) {
-			step.setWhenExpressions(new HashMap<Long, Expression>());
-			for (long j = 0; j < 1000; j++) {
-				if (!step.getWhen().contains(POUND)) {
-					expression = parser.parseExpression(step.getWhen());
-					step.getWhenExpressions().put(j, expression);
-					break;
-				} else {
-					expression = parser.parseExpression(step.getWhen().replace(
-							POUND, String.valueOf(j)));
-					step.getWhenExpressions().put(j, expression);
-				}
-			}
-		}
-
-		// --------------------
-		if (step.getWhenNotMetBehavior() != null
-				&& StringUtils.isNotBlank(step.getWhenNotMetBehavior()
-						.getExpression())) {
-
-			step.getWhenNotMetBehavior().setWhenNotMetExpressions(
-					new HashMap<Long, Expression>());
-			for (long j = 0; j < 1000; j++) {
-				if (!step.getWhenNotMetBehavior().getExpression()
-						.contains(POUND)) {
-					expression = parser.parseExpression(step
-							.getWhenNotMetBehavior().getExpression());
-					step.getWhenNotMetBehavior().getWhenNotMetExpressions()
-							.put(j, expression);
-					break;
-				} else {
-					expression = parser.parseExpression(step
-							.getWhenNotMetBehavior().getExpression()
-							.replace(POUND, String.valueOf(j)));
-					step.getWhenNotMetBehavior().getWhenNotMetExpressions()
-							.put(j, expression);
-				}
-			}
-
-		}
-
-		// --------------------
-		step.setParameterExpressions(new HashMap<Long, Map<String, Expression>>());
-		for (long j = 0; j < 1000; j++) {
-			Map<String, Expression> expressions = new HashMap<String, Expression>();
-			for (String key : step.getParameters().keySet()) {
-				String sp = step.getParameters().get(key)
-						.replace(POUND, String.valueOf(j));
-				expressions.put(key, parser.parseExpression(sp));
-			}
-			step.getParameterExpressions().put(j, expressions);
-		}
-
-		// --------------------
-
 	}
 
 	/**
@@ -293,17 +206,17 @@ public class LookupService implements InitializingBean, Transformer,
 		EntityManager entityManager = EntityManagerFactoryUtils
 				.getTransactionalEntityManager(getEntityManagerFactory());
 
-		List<HqlStep> _configurations = getConfigurations(message,
-				isPersistMode);
-		for (HqlStep configuration : _configurations) {
+		List<AbstractStep> activeSteps = getActiveSteps(message, isPersistMode);
+
+		//
+		for (AbstractStep step : activeSteps) {
 
 			if (LOGGER.isDebugEnabled())
-				LOGGER.debug("Processing Configurations:"
-						+ configuration.getBeanName());
+				LOGGER.debug("Processing Configurations:" + step.getBeanName());
 
 			try {
 
-				message = executeLookup(entityManager, configuration, message,
+				message = executeLookup(entityManager, step, message,
 						isPersistMode);
 
 				// check if the message has an item that should be redirected
@@ -337,7 +250,7 @@ public class LookupService implements InitializingBean, Transformer,
 			}
 
 			if (LOGGER_PERFORMANCE.isDebugEnabled())
-				stopWatch.lap("LookupService", configuration.getBeanName());
+				stopWatch.lap("LookupService", step.getBeanName());
 
 		}
 
@@ -351,23 +264,23 @@ public class LookupService implements InitializingBean, Transformer,
 	/**
 	 * 
 	 * @param entityManager
-	 * @param configuration
+	 * @param step
 	 * @param message
 	 * @return
 	 * @throws Exception
 	 */
 	private Message<?> prepareLookupSimple(EntityManager entityManager,
-			HqlStep configuration, Message<?> message, boolean persistEntityMode)
+			AbstractStep step, Message<?> message, boolean persistEntityMode)
 			throws Exception {
 
 		int size = 1;
 
 		// If the object is List find the size
-		for (String arrayKey : configuration
-				.getTargetObjectsOriginalArrayExpressions().keySet()) {
+		for (String arrayKey : step.getTargetObjectsOriginalArrayExpressions()
+				.keySet()) {
 
-			Expression e = configuration
-					.getTargetObjectsOriginalArrayExpressions().get(arrayKey);
+			Expression e = step.getTargetObjectsOriginalArrayExpressions().get(
+					arrayKey);
 
 			if (e != null && e.getValue(message) instanceof Collection) {
 				Collection<?> l = (Collection<?>) e.getValue(message);
@@ -390,29 +303,31 @@ public class LookupService implements InitializingBean, Transformer,
 
 			List<Expression> expressionTargetObjectExpressions = new ArrayList<Expression>();
 
-			if (configuration.getTargetObjectsExpressions() != null) {
-				for (String mapKey : configuration
-						.getTargetObjectsExpressions().keySet()) {
-					Map<Long, Expression> map = configuration
+			if (step.getTargetObjectsExpressions() != null) {
+				for (String mapKey : step.getTargetObjectsExpressions()
+						.keySet()) {
+					Map<Long, Expression> map = step
 							.getTargetObjectsExpressions().get(mapKey);
 					expressionTargetObjectExpressions.add(map.get(key));
 				}
 			}
 
-			Expression expressionWhen = (configuration.getWhenExpressions() != null) ? configuration
+			Expression expressionWhen = (step.getWhenExpressions() != null) ? step
 					.getWhenExpressions().get(key) : null;
-			Expression whenNotMetBehaviorExpression = (configuration
-					.getWhenNotMetBehavior().getWhenNotMetExpressions() != null) ? configuration
+
+			Expression whenNotMetBehaviorExpression = (step
+					.getWhenNotMetBehavior().getWhenNotMetExpressions() != null) ? step
 					.getWhenNotMetBehavior().getWhenNotMetExpressions()
 					.get(key)
 					: null;
-			Map<String, Expression> parameterExpressions = configuration
+
+			Map<String, Expression> parameterExpressions = step
 					.getParameterExpressions().get(key);
 
-			message = executeLookup(entityManager, configuration, message,
+			message = executeLookup(entityManager, (HqlStep) step, message,
 					expressionTargetObjectExpressions, expressionWhen,
 					whenNotMetBehaviorExpression, parameterExpressions,
-					persistEntityMode, key);
+					persistEntityMode, key, evaluationContext);
 
 			//
 			// check if the message has an item that should be redirected
@@ -452,29 +367,29 @@ public class LookupService implements InitializingBean, Transformer,
 	 * 
 	 * expression "parameterExpressions" does not have multiplicity
 	 * 
-	 * @param configuration
+	 * @param step
 	 * @param message
 	 * @throws Exception
 	 */
 	private Message<?> prepareLookupMix(EntityManager entityManager,
-			HqlStep configuration, Message<?> message, boolean persistEntityMode)
+			AbstractStep step, Message<?> message, boolean persistEntityMode)
 			throws Exception {
 
 		// find all target expressions
 		List<Expression> expressionTargetObjectExpressions = new ArrayList<Expression>();
 
-		for (String arrayKey : configuration
-				.getTargetObjectsOriginalArrayExpressions().keySet()) {
+		for (String arrayKey : step.getTargetObjectsOriginalArrayExpressions()
+				.keySet()) {
 
-			Expression e = configuration
-					.getTargetObjectsOriginalArrayExpressions().get(arrayKey);
+			Expression e = step.getTargetObjectsOriginalArrayExpressions().get(
+					arrayKey);
 
 			if (e != null && e.getValue(message) instanceof Collection) {
 
 				Collection<?> list = (Collection<?>) e.getValue(message);
 
-				Map<Long, Expression> map = configuration
-						.getTargetObjectsExpressions().get(arrayKey);
+				Map<Long, Expression> map = step.getTargetObjectsExpressions()
+						.get(arrayKey);
 
 				for (int size = 0; size < list.size(); size++) {
 					Expression expression = map.get(new Long(size));
@@ -482,8 +397,8 @@ public class LookupService implements InitializingBean, Transformer,
 				}
 
 			} else {
-				Map<Long, Expression> map = configuration
-						.getTargetObjectsExpressions().get(arrayKey);
+				Map<Long, Expression> map = step.getTargetObjectsExpressions()
+						.get(arrayKey);
 				Expression expression = map.get(0L);
 				expressionTargetObjectExpressions.add(expression);
 			}
@@ -491,69 +406,71 @@ public class LookupService implements InitializingBean, Transformer,
 		}
 
 		// Expression without multiplicity
-		Expression expressionWhen = (configuration.getWhenExpressions() != null) ? configuration
+		Expression expressionWhen = (step.getWhenExpressions() != null) ? step
 				.getWhenExpressions().get(0L) : null;
 
-		Expression whenNotMetBehaviorExpression = (configuration
-				.getWhenNotMetBehavior().getWhenNotMetExpressions() != null) ? configuration
+		Expression whenNotMetBehaviorExpression = (step.getWhenNotMetBehavior()
+				.getWhenNotMetExpressions() != null) ? step
 				.getWhenNotMetBehavior().getWhenNotMetExpressions().get(0L)
 				: null;
 
-		Map<String, Expression> parameterExpressions = configuration
+		Map<String, Expression> parameterExpressions = step
 				.getParameterExpressions().get(0L);
 
-		return executeLookup(entityManager, configuration, message,
+		return executeLookup(entityManager, (HqlStep) step, message,
 				expressionTargetObjectExpressions, expressionWhen,
 				whenNotMetBehaviorExpression, parameterExpressions,
-				persistEntityMode, 0);
+				persistEntityMode, 0, evaluationContext);
 
 	}
 
 	/**
 	 * 
-	 * @param configuration
+	 * @param step
 	 * @param message
 	 * @throws Exception
 	 */
 	private Message<?> prepareLookupMultiple(EntityManager entityManager,
-			HqlStep configuration, Message<?> message, boolean persistEntityMode)
+			AbstractStep step, Message<?> message, boolean persistEntityMode)
 			throws Exception {
-		return prepareLookupSimple(entityManager, configuration, message,
+		return prepareLookupSimple(entityManager, step, message,
 				persistEntityMode);
 	}
 
 	/**
 	 * 
-	 * @param configuration
+	 * @param step
 	 * @param message
 	 * @throws Exception
 	 */
 	private Message<?> executeLookup(EntityManager entityManager,
-			HqlStep configuration, Message<?> message, boolean persistEntityMode)
+			AbstractStep step, Message<?> message, boolean persistEntityMode)
 			throws Exception {
 
 		boolean containsMultiple = false;
 		boolean containsSimple = false;
-		if (configuration.getTargetObjects() != null
-				&& !configuration.getTargetObjects().isEmpty())
-			for (String key : configuration.getTargetObjects()) {
+
+		if (step.getTargetObjects() != null
+				&& !step.getTargetObjects().isEmpty()) {
+			for (String key : step.getTargetObjects()) {
 				if (key.contains(POUND))
 					containsMultiple = true;
 				else
 					containsSimple = true;
 			}
+		}
 
 		if (!containsMultiple && containsSimple) {
-			return prepareLookupSimple(entityManager, configuration, message,
+			return prepareLookupSimple(entityManager, step, message,
 					persistEntityMode);
 		} else if (containsMultiple && containsSimple) {
-			return prepareLookupMix(entityManager, configuration, message,
+			return prepareLookupMix(entityManager, step, message,
 					persistEntityMode);
 		} else if (containsMultiple && !containsSimple) {
-			return prepareLookupMultiple(entityManager, configuration, message,
+			return prepareLookupMultiple(entityManager, step, message,
 					persistEntityMode);
 		} else {
-			return prepareLookupSimple(entityManager, configuration, message,
+			return prepareLookupSimple(entityManager, step, message,
 					persistEntityMode);
 		}
 
@@ -561,16 +478,17 @@ public class LookupService implements InitializingBean, Transformer,
 
 	/**
 	 * 
-	 * @param configuration
+	 * @param step
 	 * @param message
 	 * @throws Exception
 	 */
-	private Message<?> executeLookup(EntityManager entityManager,
-			HqlStep configuration, Message<?> message,
+	private Message<?> executeLookup(EntityManager entityManager, HqlStep step,
+			Message<?> message,
 			List<Expression> expressionTargetObjectExpressions,
 			Expression expressionWhen, Expression whenNotMetBehaviorExpression,
 			Map<String, Expression> parameterExpressions,
-			boolean persistEntityMode, long index) throws Exception {
+			boolean persistEntityMode, long index,
+			EvaluationContext evaluationContext) throws Exception {
 
 		if (LOGGER.isDebugEnabled()) {
 			LOGGER.debug("Execute Lookup: persistEntityMode="
@@ -578,7 +496,7 @@ public class LookupService implements InitializingBean, Transformer,
 		}
 
 		StringBuffer buffer = new StringBuffer(CORRELATION_VALUE_PREFIX);
-		buffer.append(configuration.getBeanName());
+		buffer.append(step.getBeanName());
 
 		// Check When
 		if (LOGGER.isDebugEnabled() && expressionWhen != null) {
@@ -593,7 +511,7 @@ public class LookupService implements InitializingBean, Transformer,
 
 			if (whenNotMetBehaviorExpression != null) {
 
-				switch (configuration.getWhenNotMetBehavior().getType()) {
+				switch (step.getWhenNotMetBehavior().getType()) {
 				case WARN:
 
 					if (LOGGER.isWarnEnabled())
@@ -634,10 +552,9 @@ public class LookupService implements InitializingBean, Transformer,
 		//
 		// Check When
 		if (LOGGER.isDebugEnabled())
-			LOGGER.debug("Before Query Calculation: hql: "
-					+ configuration.getHql());
+			LOGGER.debug("Before Query Calculation: hql: " + step.getHql());
 
-		Query query = entityManager.createQuery(configuration.getHql());
+		Query query = entityManager.createQuery(step.getHql());
 
 		for (String key : parameterExpressions.keySet()) {
 			if (LOGGER.isDebugEnabled()) {
@@ -649,15 +566,15 @@ public class LookupService implements InitializingBean, Transformer,
 			if (value == null) {
 
 				LOGGER.error("NULL parameter value passed to HQL ("
-						+ configuration.getHql() + "), for key (" + key
-						+ ") message:" + message.toString());
+						+ step.getHql() + "), for key (" + key + ") message:"
+						+ message.toString());
 
 			} else if (value instanceof String
 					&& StringUtils.isBlank((String) value)) {
 
 				LOGGER.error("Blank String parameter value passed to HQL ("
-						+ configuration.getHql() + "), for key (" + key
-						+ ") message:" + message.toString());
+						+ step.getHql() + "), for key (" + key + ") message:"
+						+ message.toString());
 
 			}
 
@@ -666,19 +583,17 @@ public class LookupService implements InitializingBean, Transformer,
 					.append(value.toString());
 		}
 
-		if (configuration.isCacheable()) {
+		if (step.isCacheable()) {
 			query.setHint(QueryHints.HINT_CACHEABLE, true);
+			if (!StringUtils.isEmpty(step.getCacheRegion())) {
+				query.setHint(QueryHints.HINT_CACHE_REGION,
+						step.getCacheRegion());
+			}
 		}
 
-		if (configuration.isReadOnly()) {
+		if (step.isReadOnly()) {
 			query.setHint(QueryHints.HINT_READONLY, true);
 		}
-
-		if (!StringUtils.isEmpty(configuration.getCacheRegion())) {
-			query.setHint(QueryHints.HINT_CACHE_REGION,
-					configuration.getCacheRegion());
-		}
-
 		query.setMaxResults(1);
 
 		List<?> result = query.getResultList();
@@ -688,8 +603,8 @@ public class LookupService implements InitializingBean, Transformer,
 
 			if (persistEntityMode
 					&& (message.getHeaders().get(MessageHeaders.CORRELATION_ID)
-							.toString().endsWith(configuration.getBeanName()
-							+ "-[" + index + "]"))) {
+							.toString().endsWith(step.getBeanName() + "-["
+							+ index + "]"))) {
 
 				if (LOGGER.isWarnEnabled()) {
 					LOGGER.warn("the entity that was supposed to be added was found send the message back to the MT");
@@ -697,23 +612,42 @@ public class LookupService implements InitializingBean, Transformer,
 
 				MessageBuilder<?> builder = MessageBuilder.fromMessage(message);
 				Map<String, Object> map = new HashMap<String, Object>();
-				// builder.pushSequenceDetails(null, 1, 1).popSequenceDetails();
 				map.put(HEADER_LOOKUP_ENTITY_ADDED, "true");
 				builder.copyHeaders(map);
-				Message<?> newMessage = builder.build();
-				return newMessage;
+				return builder.build();
 
 			}
+
+			Object entity = result.get(0);
 
 			for (Expression expression : expressionTargetObjectExpressions) {
 				if (LOGGER.isDebugEnabled())
 					LOGGER.debug("Result Found: setting to:"
 							+ expression.getExpressionString());
-				expression.setValue(message, result.get(0));
+				expression.setValue(message, entity);
+			}
+
+			// MERGE !!!
+			if (step.getMerges() != null && !step.getMerges().isEmpty()) {
+				for (Merge merge : step.getMerges()) {
+
+					Object value = merge.getMergeFromExpression().getValue(
+							evaluationContext, message);
+
+					switch (merge.getStrategy()) {
+					case MERGE_ALL_FIELDS:
+						// BeanUtils.
+						break;
+
+					default:
+						break;
+					}
+
+				}
 			}
 
 			// The requested object was NOT found, the persist is required
-		} else if (configuration.isPersistIfNotFound()) {
+		} else if (step.isPersistIfNotFound()) {
 
 			if (persistEntityMode) {
 
@@ -738,7 +672,6 @@ public class LookupService implements InitializingBean, Transformer,
 				MessageBuilder<?> builder = MessageBuilder.fromMessage(message);
 				Map<String, Object> map = new HashMap<String, Object>();
 				map.put(HEADER_LOOKUP_ENTITY_ADDED, "true");
-				// builder.pushSequenceDetails(null, 1, 1).popSequenceDetails();
 				builder.removeHeader(MessageHeaders.CORRELATION_ID);
 				builder.copyHeaders(map);
 				Message<?> newMessage = builder.build();
@@ -748,25 +681,22 @@ public class LookupService implements InitializingBean, Transformer,
 
 				if (LOGGER.isDebugEnabled())
 					LOGGER.debug("Due new object found during lookup ["
-							+ configuration.getBeanName()
+							+ step.getBeanName()
 							+ "], sending message to another thread, adding header with beanName: "
 							+ getBeanName());
 
 				buffer.append(CORRELATION_STEP_NAME_PREFIX);
-				buffer.append(configuration.getBeanName()).append("-[")
-						.append(index).append("]");
+				buffer.append(step.getBeanName()).append("-[").append(index)
+						.append("]");
 
 				MessageBuilder<?> builder = MessageBuilder.fromMessage(message);
-				// builder.pushSequenceDetails(buffer.toString(), 1, 1)
-				// .popSequenceDetails();
 				builder.setCorrelationId(buffer.toString());
-				Message<?> newMessage = builder.build();
-				return newMessage;
+				return builder.build();
 
 			}
 
 		} else {
-			LOGGER.warn("New entity identified [" + configuration.getBeanName()
+			LOGGER.warn("New entity identified [" + step.getBeanName()
 					+ "] however it will not be persisted due configuration");
 		}
 
@@ -774,11 +704,11 @@ public class LookupService implements InitializingBean, Transformer,
 
 	}
 
-	public List<HqlStep> getSteps() {
+	public List<AbstractStep> getSteps() {
 		return steps;
 	}
 
-	public void setSteps(List<HqlStep> steps) {
+	public void setSteps(List<AbstractStep> steps) {
 		this.steps = steps;
 	}
 
