@@ -37,7 +37,6 @@ import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import com.intellinx.us.ps.implementation.spring.common.lookup.step.AbstractStep;
 import com.intellinx.us.ps.implementation.spring.common.lookup.step.HqlStep;
 import com.intellinx.us.ps.implementation.spring.common.lookup.step.LookupStepUtil;
-import com.intellinx.us.ps.implementation.spring.common.lookup.step.Merge;
 
 /**
  * 
@@ -509,18 +508,10 @@ public class LookupService implements InitializingBean, Transformer,
 		if (expressionWhen != null
 				&& !expressionWhen.getValue(message, Boolean.class)) {
 
-			if (whenNotMetBehaviorExpression != null) {
+			if (step.getWhenNotMetBehavior() != null
+					&& step.getWhenNotMetBehavior().getType() != null) {
 
 				switch (step.getWhenNotMetBehavior().getType()) {
-				case WARN:
-
-					if (LOGGER.isWarnEnabled())
-						LOGGER.warn("the configuration [" + getBeanName()
-								+ "] had the WHEN expression ["
-								+ expressionWhen.getExpressionString()
-								+ "] resulting in FALSE for the message:"
-								+ message);
-
 				case ERROR:
 
 					if (LOGGER.isErrorEnabled())
@@ -530,19 +521,48 @@ public class LookupService implements InitializingBean, Transformer,
 								+ "] resulting in FALSE for the message:"
 								+ message);
 
+					if (whenNotMetBehaviorExpression != null)
+						for (Expression expression : expressionTargetObjectExpressions)
+							expression.setValue(message,
+									whenNotMetBehaviorExpression
+											.getValue(message));
+
+					break;
+
+				case WARN:
+
+					if (LOGGER.isWarnEnabled())
+						LOGGER.warn("the configuration [" + getBeanName()
+								+ "] had the WHEN expression ["
+								+ expressionWhen.getExpressionString()
+								+ "] resulting in FALSE for the message:"
+								+ message);
+
+					if (whenNotMetBehaviorExpression != null)
+						for (Expression expression : expressionTargetObjectExpressions)
+							expression.setValue(message,
+									whenNotMetBehaviorExpression
+											.getValue(message));
+
+					break;
+
+				case IGNORE:
+
+					break;
+
 				default:
-					for (Expression expression : expressionTargetObjectExpressions)
-						expression.setValue(message,
-								whenNotMetBehaviorExpression.getValue(message));
+
 				}
 
 			} else {
 
 				if (LOGGER.isWarnEnabled())
-					LOGGER.debug("the configuration [" + getBeanName()
+					LOGGER.debug("the configuration [" + getBeanName() + "/"
+							+ step.getBeanName()
 							+ "] had the WHEN expression ["
 							+ expressionWhen.getExpressionString()
-							+ "] resulting in FALSE for the message:" + message);
+							+ "] resulting in FALSE for the message:"
+							+ message.toString());
 
 			}
 
@@ -557,10 +577,12 @@ public class LookupService implements InitializingBean, Transformer,
 		Query query = entityManager.createQuery(step.getHql());
 
 		for (String key : parameterExpressions.keySet()) {
+
 			if (LOGGER.isDebugEnabled()) {
 				LOGGER.debug("Setting Parameter [" + key + "]:"
 						+ parameterExpressions.get(key).getValue(message));
 			}
+
 			Object value = parameterExpressions.get(key).getValue(message);
 
 			if (value == null) {
@@ -628,22 +650,10 @@ public class LookupService implements InitializingBean, Transformer,
 			}
 
 			// MERGE !!!
-			if (step.getMerges() != null && !step.getMerges().isEmpty()) {
-				for (Merge merge : step.getMerges()) {
-
-					Object value = merge.getMergeFromExpression().getValue(
-							evaluationContext, message);
-
-					switch (merge.getStrategy()) {
-					case MERGE_ALL_FIELDS:
-						// BeanUtils.
-						break;
-
-					default:
-						break;
-					}
-
-				}
+			if (step.getMerge() != null) {
+				Object value = step.getMerge().getMergeFromExpression()
+						.getValue(evaluationContext, message);
+				LookupStepUtil.merge(value, entity, step.getMerge());
 			}
 
 			// The requested object was NOT found, the persist is required

@@ -1,7 +1,6 @@
 package com.intellinx.us.ps.implementation.spring.common.lookup.step;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.BeanNameAware;
@@ -34,7 +33,7 @@ public class HqlStep extends AbstractHibernateStep implements BeanNameAware,
 
 	private Map<Long, Map<String, Expression>> parameterExpressions;
 
-	private List<Merge> merges;
+	private Merge merge;
 
 	public String getHql() {
 		return hql;
@@ -95,12 +94,12 @@ public class HqlStep extends AbstractHibernateStep implements BeanNameAware,
 		this.targetObjectsExpressions = targetObjectsExpressions;
 	}
 
-	public List<Merge> getMerges() {
-		return merges;
+	public Merge getMerge() {
+		return merge;
 	}
 
-	public void setMerges(List<Merge> merges) {
-		this.merges = merges;
+	public void setMerge(Merge merge) {
+		this.merge = merge;
 	}
 
 }

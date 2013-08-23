@@ -16,16 +16,23 @@ public enum MergeStrategy {
 
 	/**
 	 * if the field contain value > message updates record if the field does not
-	 * contain value > message updates record
+	 * contain value > message updates record, but the id fields
 	 */
 	MERGE_ALL_FIELDS,
 
 	/**
-	 * if the field contain value > message updates record if the field does not
-	 * contain value > message DOES NOT update record
+	 * if the field on the target object contains value > message updates record<br>
+	 * if the field does not contains value > message DOES NOT update record
 	 * 
 	 */
-	MERGE_NON_NULL_FIELDS,
+	MERGE_NON_NULL_TARGET_FIELDS,
+
+	/**
+	 * if the field on the source object contains value > message updates record<br>
+	 * if the field does not contains value > message DOES NOT update record
+	 * 
+	 */
+	MERGE_NON_NULL_SOURCE_FIELDS,
 
 	/**
 	 * 

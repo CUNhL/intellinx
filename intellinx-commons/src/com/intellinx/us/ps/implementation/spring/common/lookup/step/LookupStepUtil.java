@@ -1,10 +1,15 @@
 package com.intellinx.us.ps.implementation.spring.common.lookup.step;
 
+import java.beans.PropertyDescriptor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
 import org.springframework.util.Assert;
@@ -125,6 +130,11 @@ public class LookupStepUtil {
 				}
 			}
 
+		} else if (step.getWhenNotMetBehavior() != null) {
+
+			Assert.notNull(step.getWhenNotMetBehavior().getType(),
+					"Type is required for WhenNotMetBehavior");
+
 		}
 
 		// --------------------
@@ -142,28 +152,25 @@ public class LookupStepUtil {
 		// --------------------
 
 		// check readonly
-		if (step.getMerges() != null && !step.getMerges().isEmpty()) {
+		if (step.getMerge() != null) {
 
-			for (Merge merge : step.getMerges()) {
-
-				switch (merge.getStrategy()) {
-				case DO_NOT_MERGE_FIELDS:
-					step.setReadOnly(true);
-					break;
-				case FIELD_STRATEGY_MERGE_ALLWAYS:
-				case FIELD_STRATEGY_MERGE_IF_NOT_NULL:
-					Assert.isTrue(step.isReadOnly() == false,
-							"Using Merge Strategies, ReadOnly shall be false");
-				default:
-					break;
-				}
-
-				// Calculate merge from
-				Assert.notNull(merge.getMergeFrom(),
-						"At least one expression of Merge From should be Defined");
-				merge.setMergeFromExpression(parser.parseExpression(merge
-						.getMergeFrom()));
+			switch (step.getMerge().getStrategy()) {
+			case DO_NOT_MERGE_FIELDS:
+				step.setReadOnly(true);
+				break;
+			case FIELD_STRATEGY_MERGE_ALLWAYS:
+			case FIELD_STRATEGY_MERGE_IF_NOT_NULL:
+				Assert.isTrue(step.isReadOnly() == false,
+						"Using Merge Strategies, ReadOnly shall be false");
+			default:
+				break;
 			}
+
+			// Calculate merge from
+			Assert.notNull(step.getMerge().getMergeFrom(),
+					"At least one expression of Merge From should be Defined");
+			step.getMerge().setMergeFromExpression(
+					parser.parseExpression(step.getMerge().getMergeFrom()));
 
 		}
 
@@ -183,9 +190,54 @@ public class LookupStepUtil {
 	 * 
 	 * @param source
 	 * @param target
+	 * @throws NoSuchMethodException
+	 * @throws InvocationTargetException
+	 * @throws IllegalAccessException
 	 */
-	public static void copyAllProperties(Object source, Object target) {
+	public static void merge(Object source, Object target, Merge merge)
+			throws IllegalAccessException, InvocationTargetException,
+			NoSuchMethodException {
+
+		// Check if the type of objects are the same
+		if (!source.getClass().equals(target.getClass())) {
+			return;
+		}
+
+		List<String> ignoredProperties = new ArrayList<String>();
+		PropertyDescriptor[] propertyDescriptors = BeanUtils
+				.getPropertyDescriptors(source.getClass());
+
+		//
+		for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
+
+			// TODO Use annotation to identify the real id field
+			if (propertyDescriptor.getName().toLowerCase().equals("id")) {
+				ignoredProperties.add(propertyDescriptor.getName());
+				continue;
+			}
+
+			switch (merge.getStrategy()) {
+			case MERGE_NON_NULL_TARGET_FIELDS:
+				// find that the value is null and not merge adding to the
+				// ignored list
+				Method readMethod = propertyDescriptor.getReadMethod();
+				if (readMethod.invoke(target, null) == null) {
+					ignoredProperties.add(propertyDescriptor.getName());
+				}
+
+			case MERGE_ALL_FIELDS:
+				//
+				break;
+			default:
+				break;
+			}
+
+		}
+
+		//
+		BeanUtils
+				.copyProperties(source, target, ignoredProperties
+						.toArray(new String[ignoredProperties.size()]));
 
 	}
-
 }
