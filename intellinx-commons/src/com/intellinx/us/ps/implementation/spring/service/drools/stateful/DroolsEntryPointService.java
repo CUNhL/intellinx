@@ -53,8 +53,6 @@ public class DroolsEntryPointService extends AbstractDroolsService implements
 
 	private DroolsSessionService droolsSessionService;
 
-	private static final String PAYLOAD = "PAYLOAD";
-
 	private String entryPointName;
 
 	private boolean multithread;
@@ -78,11 +76,10 @@ public class DroolsEntryPointService extends AbstractDroolsService implements
 	@Override
 	public void afterPropertiesSet() throws Exception {
 
-		// /SpelExpressionParser parser = new SpelExpressionParser();
+		// SpelExpressionParser parser = new SpelExpressionParser();
 
 		/*
-		 * if (getConfiguration() != null &&
-		 * getConfiguration().getBeforeRuleExecutionActions() != null) {
+		 * if (getConfiguration().getBeforeRuleExecutionActions() != null) {
 		 * 
 		 * for (LoadDataQuery query : getConfiguration()
 		 * .getBeforeRuleExecutionActions()) {
@@ -110,9 +107,9 @@ public class DroolsEntryPointService extends AbstractDroolsService implements
 		incidentObjectFilters.put(BasicIncident.class, new ClassObjectFilter(
 				BasicIncident.class));
 
-		// create EL Expression for input data
 		/*
-		 * if (configuration.getExpressions() != null) {
+		 * // create EL Expression for input data if
+		 * (configuration.getExpressions() != null) {
 		 * configuration.setExpressionsParsed(new ArrayList<Expression>()); for
 		 * (String expression : configuration.getExpressions()) {
 		 * configuration.getExpressionsParsed().add(
@@ -120,6 +117,7 @@ public class DroolsEntryPointService extends AbstractDroolsService implements
 		 * 
 		 * }
 		 */
+
 	}
 
 	/**
@@ -180,18 +178,15 @@ public class DroolsEntryPointService extends AbstractDroolsService implements
 				message = sendObjectsToHeader(message, stopWatch,
 						BasicIncident.class, INCIDENTS, true, knowledgeSession);
 
-				// Send Other Objects to the Header
-				// if (configuration != null
-				// && configuration.getAfterRuleExecutionActions() != null) {
-				// for (AfterRuleExecutionAction action : configuration
-				// .getAfterRuleExecutionActions()) {
-				// message = sendObjectsToHeader(message, stopWatch,
-				// action.getObjectClass(),
-				// action.getHeaderName(), action.isRetract(),
-				// knowledgeSession);
-				// }
-				// }
-
+				/*
+				 * // Send Other Objects to the Header if
+				 * (configuration.getAfterRuleExecutionActions() != null) { for
+				 * (AfterRuleExecutionAction action : configuration
+				 * .getAfterRuleExecutionActions()) { message =
+				 * sendObjectsToHeader(message, stopWatch,
+				 * action.getObjectClass(), action.getHeaderName(),
+				 * action.isRetract(), knowledgeSession); } }
+				 */
 				recycleSession(results, knowledgeSession);
 			}
 
@@ -229,71 +224,63 @@ public class DroolsEntryPointService extends AbstractDroolsService implements
 		List<Command<?>> commands = new ArrayList<Command<?>>();
 
 		// Add pre execution information from queries
-
 		/*
-		 * if (configuration != null &&
-		 * configuration.getBeforeRuleExecutionActions() != null) {
-		 * 
 		 * List<Object> objects = executeQueries(
 		 * configuration.getBeforeRuleExecutionActions(), message,
-		 * entityManager); insert(commands, entryPoint,
-		 * PRE_RULE_EXECUTION_ACTION, objects); if
+		 * entityManager); if (objects != null) { insert(commands, entryPoint,
+		 * PRE_RULE_EXECUTION_ACTION, objects); } if
 		 * (LOGGER_PERFORMANCE.isDebugEnabled()) {
 		 * stopWatch.lap("DroolsEntryPointService", "after execute queries"); }
-		 * 
-		 * if (LOGGER_PERFORMANCE.isDebugEnabled()) {
-		 * stopWatch.lap("DroolsEntryPointService",
-		 * "after insert queries objects into memory, size:" + ((objects !=
-		 * null) ? objects.size() : 0)); }
-		 * 
-		 * }
 		 */
-
-		// Insert the Payload into the session.
-		List<Object> objectsPayload = new ArrayList<Object>();
 
 		/*
-		 * if (getConfiguration() != null &&
-		 * getConfiguration().getExpressionsParsed() != null) {
-		 * 
-		 * for (Expression expression : getConfiguration()
-		 * .getExpressionsParsed()) { Object object =
-		 * expression.getValue(message); if (object instanceof Collection) {
-		 * Collection<?> collection = (Collection<?>) object; for (Object
-		 * innerObject : collection) objectsPayload.add(innerObject); } else {
-		 * objectsPayload.add(object); } }
-		 * 
-		 * } else { objectsPayload.add(message); }
+		 * if (LOGGER_PERFORMANCE.isDebugEnabled()) {
+		 * stopWatch.lap("DroolsEntryPointService",
+		 * "after creating command to insert queries objects into memory, size:"
+		 * + ((objects != null) ? objects.size() : 0)); }
 		 */
-		insert(commands, entryPoint, PAYLOAD, objectsPayload);
+
+		/*
+		 * // Insert the Payload into the session. List<Object> objectsPayload =
+		 * new ArrayList<Object>(); if
+		 * (getConfiguration().getExpressionsParsed() != null) { for (Expression
+		 * expression : getConfiguration() .getExpressionsParsed()) { Object
+		 * object = expression.getValue(message); if (object instanceof
+		 * Collection) { Collection<?> collection = (Collection<?>) object; for
+		 * (Object innerObject : collection) objectsPayload.add(innerObject); }
+		 * else { objectsPayload.add(object); } } } else {
+		 * objectsPayload.add(message.getPayload()); }
+		 */
+		// insert(commands, entryPoint, PAYLOAD, objectsPayload);
 
 		if (LOGGER_PERFORMANCE.isDebugEnabled()) {
 			stopWatch.lap("DroolsEntryPointService",
-					"after insert payload into memory");
+					"after creating command to insert payload into memory");
 		}
 
 		/*
-		 * // Insert the head objects into the session. //if (configuration !=
-		 * null // && configuration.getHeadFieldToInject() != null) { // for
-		 * (String head : configuration.getHeadFieldToInject()) { //
-		 * List<Object> objectsHead = new ArrayList<Object>(); // if
-		 * (message.getHeaders().containsKey(head)) { // Object object =
-		 * message.getHeaders().get(head); // if (object instanceof Collection)
-		 * { // Collection<?> collection = (Collection<?>) object; // for
-		 * (Object innerObject : collection) // objectsHead.add(innerObject); //
-		 * } else // objectsHead.add(object); // } // insert(commands,
-		 * entryPoint, "HEAD[" + head + "]", objectsHead); // if
-		 * (LOGGER_PERFORMANCE.isDebugEnabled()) { //
-		 * stopWatch.lap("DroolsEntryPointService", "after insert head [" + head
-		 * + "] object memory"); } } }
+		 * if (LOGGER_PERFORMANCE.isDebugEnabled()) { stopWatch
+		 * .lap("DroolsEntryPointService", "Number of facts in Payload: size=" +
+		 * objectsPayload.size()); }
+		 */
+
+		/*
+		 * // Insert the head objects into the session. if
+		 * (configuration.getHeadFieldToInject() != null) { for (String head :
+		 * configuration.getHeadFieldToInject()) { List<Object> objectsHead =
+		 * new ArrayList<Object>(); if (message.getHeaders().containsKey(head))
+		 * { Object object = message.getHeaders().get(head); if (object
+		 * instanceof Collection) { Collection<?> collection = (Collection<?>)
+		 * object; for (Object innerObject : collection)
+		 * objectsHead.add(innerObject); } else objectsHead.add(object); }
+		 * insert(commands, entryPoint, "HEAD[" + head + "]", objectsHead); if
+		 * (LOGGER_PERFORMANCE.isDebugEnabled()) {
+		 * stopWatch.lap("DroolsEntryPointService",
+		 * "after creating command to insert head [" + head +
+		 * "] object memory"); } } }
 		 */
 
 		//
-		if (LOGGER_PERFORMANCE.isDebugEnabled()) {
-			stopWatch.lap("DroolsEntryPointService",
-					"Number of facts after Inserting Payload: size="
-							+ knowledgeSession.getFactCount());
-		}
 
 		// Create the FireAll Command
 		commands.add(new FireAllRulesCommand());
@@ -312,12 +299,11 @@ public class DroolsEntryPointService extends AbstractDroolsService implements
 		List<Command<?>> cmds = new ArrayList<Command<?>>();
 
 		/*
-		 * // Retract Header Facts if (configuration != null &&
-		 * configuration.getHeadFieldToInject() != null &&
-		 * !configuration.getHeadFieldToInject().isEmpty()) { for (String head :
-		 * configuration.getHeadFieldToInject()) { RetractCommand retractCommand
-		 * = new RetractCommand( (FactHandle) results .getFactHandle("HEAD[" +
-		 * head + "]")); cmds.add(retractCommand); } }
+		 * // Retract Header Facts if (configuration.getHeadFieldToInject() !=
+		 * null && !configuration.getHeadFieldToInject().isEmpty()) { for
+		 * (String head : configuration.getHeadFieldToInject()) { RetractCommand
+		 * retractCommand = new RetractCommand( (FactHandle) results
+		 * .getFactHandle("HEAD[" + head + "]")); cmds.add(retractCommand); } }
 		 */
 
 		// Retract PRE_RULE_EXECUTION_ACTION
@@ -387,7 +373,7 @@ public class DroolsEntryPointService extends AbstractDroolsService implements
 	 * @param what
 	 * @param objects
 	 */
-	@SuppressWarnings("rawtypes")
+	@SuppressWarnings({ "rawtypes", "unused" })
 	private void insert(List<Command<?>> cmds,
 			WorkingMemoryEntryPoint entryPoint, String what,
 			List<Object> objects) {

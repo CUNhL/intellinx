@@ -42,21 +42,34 @@ public class KnowledgeSessionFactory extends
 	 */
 	@Override
 	public StatelessKnowledgeSession makeObject() throws Exception {
-		return knowledgeBase.newStatelessKnowledgeSession();
+		if (LOGGER.isTraceEnabled())
+			LOGGER.trace("Make new knowledgeSession");
+		StatelessKnowledgeSession session = knowledgeBase
+				.newStatelessKnowledgeSession();
+		return session;
 	}
 
 	@Override
 	public void activateObject(StatelessKnowledgeSession knowledgeSession)
 			throws Exception {
+
+		if (LOGGER.isTraceEnabled())
+			LOGGER.trace("Activating new knowledgeSession");
+
 		// Add the Logger
 		if (LOGGER.isDebugEnabled() && getLogfolder() != null)
 			createLogger(knowledgeSession);
+
 		super.activateObject(knowledgeSession);
 	}
 
 	@Override
 	public void passivateObject(StatelessKnowledgeSession knowledgeSession)
 			throws Exception {
+
+		if (LOGGER.isTraceEnabled())
+			LOGGER.trace("Passivate new knowledgeSession");
+
 		if (loggers.containsKey(knowledgeSession))
 			loggers.remove(knowledgeSession).close();
 		super.passivateObject(knowledgeSession);

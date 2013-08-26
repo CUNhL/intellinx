@@ -221,7 +221,7 @@ public class LookupStepUtil {
 				// find that the value is null and not merge adding to the
 				// ignored list
 				Method readMethod = propertyDescriptor.getReadMethod();
-				if (readMethod.invoke(target, null) == null) {
+				if (readMethod.invoke(target, new Object[0]) == null) {
 					ignoredProperties.add(propertyDescriptor.getName());
 				}
 

@@ -16,7 +16,6 @@ public class ConfigurableAgendaFilter implements AgendaFilter {
 
 	@Override
 	public boolean accept(Activation activation) {
-		// activation.getRule().get
 		return true;
 	}
 

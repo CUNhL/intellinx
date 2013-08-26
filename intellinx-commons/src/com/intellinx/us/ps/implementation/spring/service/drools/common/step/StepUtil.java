@@ -10,7 +10,6 @@ import javax.persistence.EntityManagerFactory;
 
 import org.drools.command.Command;
 import org.drools.command.CommandFactory;
-import org.drools.runtime.StatelessKnowledgeSession;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
@@ -86,10 +85,7 @@ public class StepUtil {
 	 * @param service
 	 * @param commands
 	 * @param message
-	 * @param knowledgeSession
-	 * @param evaluationContext
 	 * @param step
-	 * @param entityManagerFactory
 	 * @return
 	 * @throws SecurityException
 	 * @throws IllegalArgumentException
@@ -100,8 +96,7 @@ public class StepUtil {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public boolean createBatchExecutionCommandFromCache(
 			KnowledgeSessionService service, List<Command<?>> commands,
-			Message<?> message, StatelessKnowledgeSession knowledgeSession,
-			AbstractStep step) throws SecurityException,
+			Message<?> message, AbstractStep step) throws SecurityException,
 			IllegalArgumentException, NoSuchMethodException,
 			IllegalAccessException, InvocationTargetException {
 
@@ -136,7 +131,6 @@ public class StepUtil {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void createBatchExecutionCommand(KnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message,
-			StatelessKnowledgeSession knowledgeSession,
 			EvaluationContext evaluationContext, HqlStep step,
 			EntityManagerFactory entityManagerFactory)
 			throws SecurityException, IllegalArgumentException,
@@ -176,7 +170,6 @@ public class StepUtil {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void createBatchExecutionCommand(KnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message,
-			StatelessKnowledgeSession knowledgeSession,
 			EvaluationContext context, ExpressionStep step,
 			EntityManagerFactory entityManagerFactory)
 			throws SecurityException, IllegalArgumentException,

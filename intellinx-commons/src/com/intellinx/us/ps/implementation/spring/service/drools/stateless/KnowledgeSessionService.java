@@ -146,15 +146,15 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			for (AbstractStep step : steps) {
 
 				if (!stepUtil.createBatchExecutionCommandFromCache(this,
-						commands, message, knowledgeSession, step)) {
+						commands, message, step)) {
 
 					if (step instanceof HqlStep) {
 						stepUtil.createBatchExecutionCommand(this, commands,
-								message, knowledgeSession, evaluationContext,
-								(HqlStep) step, getEntityManagerFactory());
+								message, evaluationContext, (HqlStep) step,
+								getEntityManagerFactory());
 					} else {
 						stepUtil.createBatchExecutionCommand(this, commands,
-								message, knowledgeSession, evaluationContext,
+								message, evaluationContext,
 								(ExpressionStep) step,
 								getEntityManagerFactory());
 					}

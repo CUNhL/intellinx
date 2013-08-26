@@ -23,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.beans.factory.InitializingBean;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.util.Assert;
 
@@ -64,6 +63,11 @@ public class DroolsSessionService extends AbstractDroolsService implements
 
 		knowledgeSession = knowledgeBase.newStatefulKnowledgeSession();
 
+		// Add the Incident Helper to the memory
+		// if (knowledgeSession.getGlobal("incidentHelper") == null) {
+		// knowledgeSession.setGlobal("incidentHelper", getIncidentHelper());
+		// }
+
 		timeoutMap = new HashMap<LoadDataQuery, Calendar>();
 
 		// get entry point
@@ -75,13 +79,13 @@ public class DroolsSessionService extends AbstractDroolsService implements
 				Assert.notNull(query.getBeanName(),
 						"please provide the query [id]");
 				Assert.notNull(query.getQuery(), "please provide the [query]");
-				// Assert.isTrue(
-				// (query.getRefreshRate() != null && query
-				// .getRefreshRateType() != null)
-				// || (query.getRefreshRate() == null && query
-				// .getRefreshRateType() == null),
-				// "please provide [refreshRate] and [refreshRateType] parameters");
-
+				/*
+				 * Assert.isTrue( (query.getRefreshRate() != null && query
+				 * .getRefreshRateType() != null) || (query.getRefreshRate() ==
+				 * null && query .getRefreshRateType() == null),
+				 * "please provide [refreshRate] and [refreshRateType] parameters"
+				 * );
+				 */
 				timeoutMap.put(query, Calendar.getInstance());
 				loadQueryData(query);
 
@@ -89,10 +93,6 @@ public class DroolsSessionService extends AbstractDroolsService implements
 
 		entityManager = EntityManagerFactoryUtils
 				.getTransactionalEntityManager(getEntityManagerFactory());
-
-		if (entityManager == null) {
-			entityManager = getEntityManagerFactory().createEntityManager();
-		}
 
 	}
 
@@ -112,8 +112,6 @@ public class DroolsSessionService extends AbstractDroolsService implements
 			IllegalAccessException, InvocationTargetException {
 
 		// List<FactHandle> factHandles = new ArrayList<FactHandle>();
-		// TODO - Fix this
-		StandardEvaluationContext standardEvaluationContext = null;
 
 		String outIdentifier = "out_identifier_" + query.getBeanName();
 
@@ -132,12 +130,7 @@ public class DroolsSessionService extends AbstractDroolsService implements
 						+ getBeanName()
 						+ ")Queries loaded during the start of the Rule Session (when=AFTER_LOADING_RULE_ENGINE_SESSION), shall not have parameters");
 
-		if (entityManager == null) {
-			entityManager = getEntityManagerFactory().createEntityManager();
-		}
-
-		List<?> objects = executeQuery(query, null, entityManager,
-				standardEvaluationContext);
+		List<?> objects = executeQuery(query, null, entityManager, null);
 
 		if (objects != null) {
 
@@ -241,7 +234,6 @@ public class DroolsSessionService extends AbstractDroolsService implements
 				 * 
 				 * }
 				 */
-
 			}
 
 			if (LOGGER_PERFORMANCE.isDebugEnabled())
