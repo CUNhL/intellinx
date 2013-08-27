@@ -216,14 +216,27 @@ public class LookupStepUtil {
 				continue;
 			}
 
+			Method readMethod = null;
+
 			switch (merge.getStrategy()) {
+
 			case MERGE_NON_NULL_TARGET_FIELDS:
 				// find that the value is null and not merge adding to the
 				// ignored list
-				Method readMethod = propertyDescriptor.getReadMethod();
+				readMethod = propertyDescriptor.getReadMethod();
 				if (readMethod.invoke(target, new Object[0]) == null) {
 					ignoredProperties.add(propertyDescriptor.getName());
 				}
+				break;
+
+			case MERGE_NON_NULL_SOURCE_FIELDS:
+				// find that the value is null and not merge adding to the
+				// ignored list
+				readMethod = propertyDescriptor.getReadMethod();
+				if (readMethod.invoke(source, new Object[0]) == null) {
+					ignoredProperties.add(propertyDescriptor.getName());
+				}
+				break;
 
 			case MERGE_ALL_FIELDS:
 				//
