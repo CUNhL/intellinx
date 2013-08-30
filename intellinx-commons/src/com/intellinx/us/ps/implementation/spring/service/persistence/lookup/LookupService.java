@@ -79,8 +79,6 @@ public class LookupService implements InitializingBean, Transformer,
 
 	private String beanName;
 
-	private List<MergeService> mergeServices;
-
 	private EvaluationContext evaluationContext;
 
 	/**
@@ -202,9 +200,6 @@ public class LookupService implements InitializingBean, Transformer,
 			return message;
 		}
 
-		EntityManager entityManager = EntityManagerFactoryUtils
-				.getTransactionalEntityManager(getEntityManagerFactory());
-
 		List<AbstractStep> activeSteps = getActiveSteps(message, isPersistMode);
 
 		//
@@ -215,8 +210,7 @@ public class LookupService implements InitializingBean, Transformer,
 
 			try {
 
-				message = executeLookup(entityManager, step, message,
-						isPersistMode);
+				message = executeLookup(step, message, isPersistMode);
 
 				// check if the message has an item that should be redirected
 
@@ -268,9 +262,8 @@ public class LookupService implements InitializingBean, Transformer,
 	 * @return
 	 * @throws Exception
 	 */
-	private Message<?> prepareLookupSimple(EntityManager entityManager,
-			AbstractStep step, Message<?> message, boolean persistEntityMode)
-			throws Exception {
+	private Message<?> prepareLookupSimple(AbstractStep step,
+			Message<?> message, boolean persistEntityMode) throws Exception {
 
 		int size = 1;
 
@@ -323,7 +316,7 @@ public class LookupService implements InitializingBean, Transformer,
 			Map<String, Expression> parameterExpressions = step
 					.getParameterExpressions().get(key);
 
-			message = executeLookup(entityManager, (HqlStep) step, message,
+			message = executeLookup((HqlStep) step, message,
 					expressionTargetObjectExpressions, expressionWhen,
 					whenNotMetBehaviorExpression, parameterExpressions,
 					persistEntityMode, key, evaluationContext);
@@ -370,9 +363,8 @@ public class LookupService implements InitializingBean, Transformer,
 	 * @param message
 	 * @throws Exception
 	 */
-	private Message<?> prepareLookupMix(EntityManager entityManager,
-			AbstractStep step, Message<?> message, boolean persistEntityMode)
-			throws Exception {
+	private Message<?> prepareLookupMix(AbstractStep step, Message<?> message,
+			boolean persistEntityMode) throws Exception {
 
 		// find all target expressions
 		List<Expression> expressionTargetObjectExpressions = new ArrayList<Expression>();
@@ -416,7 +408,7 @@ public class LookupService implements InitializingBean, Transformer,
 		Map<String, Expression> parameterExpressions = step
 				.getParameterExpressions().get(0L);
 
-		return executeLookup(entityManager, (HqlStep) step, message,
+		return executeLookup((HqlStep) step, message,
 				expressionTargetObjectExpressions, expressionWhen,
 				whenNotMetBehaviorExpression, parameterExpressions,
 				persistEntityMode, 0, evaluationContext);
@@ -429,11 +421,9 @@ public class LookupService implements InitializingBean, Transformer,
 	 * @param message
 	 * @throws Exception
 	 */
-	private Message<?> prepareLookupMultiple(EntityManager entityManager,
-			AbstractStep step, Message<?> message, boolean persistEntityMode)
-			throws Exception {
-		return prepareLookupSimple(entityManager, step, message,
-				persistEntityMode);
+	private Message<?> prepareLookupMultiple(AbstractStep step,
+			Message<?> message, boolean persistEntityMode) throws Exception {
+		return prepareLookupSimple(step, message, persistEntityMode);
 	}
 
 	/**
@@ -442,9 +432,8 @@ public class LookupService implements InitializingBean, Transformer,
 	 * @param message
 	 * @throws Exception
 	 */
-	private Message<?> executeLookup(EntityManager entityManager,
-			AbstractStep step, Message<?> message, boolean persistEntityMode)
-			throws Exception {
+	private Message<?> executeLookup(AbstractStep step, Message<?> message,
+			boolean persistEntityMode) throws Exception {
 
 		boolean containsMultiple = false;
 		boolean containsSimple = false;
@@ -460,17 +449,13 @@ public class LookupService implements InitializingBean, Transformer,
 		}
 
 		if (!containsMultiple && containsSimple) {
-			return prepareLookupSimple(entityManager, step, message,
-					persistEntityMode);
+			return prepareLookupSimple(step, message, persistEntityMode);
 		} else if (containsMultiple && containsSimple) {
-			return prepareLookupMix(entityManager, step, message,
-					persistEntityMode);
+			return prepareLookupMix(step, message, persistEntityMode);
 		} else if (containsMultiple && !containsSimple) {
-			return prepareLookupMultiple(entityManager, step, message,
-					persistEntityMode);
+			return prepareLookupMultiple(step, message, persistEntityMode);
 		} else {
-			return prepareLookupSimple(entityManager, step, message,
-					persistEntityMode);
+			return prepareLookupSimple(step, message, persistEntityMode);
 		}
 
 	}
@@ -481,8 +466,7 @@ public class LookupService implements InitializingBean, Transformer,
 	 * @param message
 	 * @throws Exception
 	 */
-	private Message<?> executeLookup(EntityManager entityManager, HqlStep step,
-			Message<?> message,
+	private Message<?> executeLookup(HqlStep step, Message<?> message,
 			List<Expression> expressionTargetObjectExpressions,
 			Expression expressionWhen, Expression whenNotMetBehaviorExpression,
 			Map<String, Expression> parameterExpressions,
@@ -574,6 +558,10 @@ public class LookupService implements InitializingBean, Transformer,
 		if (LOGGER.isDebugEnabled())
 			LOGGER.debug("Before Query Calculation: hql: " + step.getHql());
 
+		// //////
+		EntityManager entityManager = EntityManagerFactoryUtils
+				.getTransactionalEntityManager(getEntityManagerFactory());
+
 		Query query = entityManager.createQuery(step.getHql());
 
 		for (String key : parameterExpressions.keySet()) {
@@ -613,9 +601,8 @@ public class LookupService implements InitializingBean, Transformer,
 			}
 		}
 
-		if (step.isReadOnly()) {
-			query.setHint(QueryHints.HINT_READONLY, true);
-		}
+		query.setHint(QueryHints.HINT_READONLY, step.isReadOnly());
+
 		query.setMaxResults(1);
 
 		List<?> result = query.getResultList();
@@ -642,18 +629,18 @@ public class LookupService implements InitializingBean, Transformer,
 
 			Object entity = result.get(0);
 
+			// MERGE !!!
+			if (step.getMerge() != null) {
+				Object value = step.getMerge().getCalculatedMergeFrom()
+						.getValue(evaluationContext, message);
+				LookupStepUtil.merge(value, entity, step.getMerge());
+			}
+
 			for (Expression expression : expressionTargetObjectExpressions) {
 				if (LOGGER.isDebugEnabled())
 					LOGGER.debug("Result Found: setting to:"
 							+ expression.getExpressionString());
 				expression.setValue(message, entity);
-			}
-
-			// MERGE !!!
-			if (step.getMerge() != null) {
-				Object value = step.getMerge().getMergeFromExpression()
-						.getValue(evaluationContext, message);
-				LookupStepUtil.merge(value, entity, step.getMerge());
 			}
 
 			// The requested object was NOT found, the persist is required
@@ -745,14 +732,6 @@ public class LookupService implements InitializingBean, Transformer,
 
 	public void setBeanName(String beanName) {
 		this.beanName = beanName;
-	}
-
-	public List<MergeService> getMergeServices() {
-		return mergeServices;
-	}
-
-	public void setMergeServices(List<MergeService> mergeServices) {
-		this.mergeServices = mergeServices;
 	}
 
 }

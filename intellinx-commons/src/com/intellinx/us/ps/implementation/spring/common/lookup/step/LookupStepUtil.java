@@ -5,10 +5,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
@@ -22,6 +24,9 @@ import com.intellinx.us.ps.implementation.spring.service.persistence.lookup.Look
  * 
  */
 public class LookupStepUtil {
+
+	private static final Logger LOGGER = LoggerFactory
+			.getLogger(LookupStepUtil.class);
 
 	private ExpressionParser parser;
 
@@ -55,6 +60,7 @@ public class LookupStepUtil {
 			step.getTargetObjects().add(step.getTargetObject());
 		}
 
+		//
 		for (String targetObject : step.getTargetObjects()) {
 
 			Map<Long, Expression> map = new HashMap<Long, Expression>();
@@ -159,18 +165,30 @@ public class LookupStepUtil {
 				step.setReadOnly(true);
 				break;
 			case FIELD_STRATEGY_MERGE_ALLWAYS:
+			case MERGE_ALL_FIELDS:
+			case MERGE_NON_NULL_SOURCE_FIELDS:
+			case MERGE_NULL_TARGET_FIELDS:
 			case FIELD_STRATEGY_MERGE_IF_NOT_NULL:
-				Assert.isTrue(step.isReadOnly() == false,
-						"Using Merge Strategies, ReadOnly shall be false");
 			default:
+				if (step.getMerge().getExpression() == null) {
+					Assert.isTrue(!step.isReadOnly(),
+							"Using Merge Strategies, ReadOnly property should be set to false");
+				}
 				break;
 			}
 
 			// Calculate merge from
 			Assert.notNull(step.getMerge().getMergeFrom(),
 					"At least one expression of Merge From should be Defined");
-			step.getMerge().setMergeFromExpression(
+			step.getMerge().setCalculatedMergeFrom(
 					parser.parseExpression(step.getMerge().getMergeFrom()));
+
+			// Calculate expression
+			if (step.getMerge().getExpression() != null)
+				step.getMerge()
+						.setCalculatedExpression(
+								parser.parseExpression(step.getMerge()
+										.getExpression()));
 
 		}
 
@@ -200,57 +218,85 @@ public class LookupStepUtil {
 
 		// Check if the type of objects are the same
 		if (!source.getClass().equals(target.getClass())) {
+			LOGGER.error("Merging objects from different classes: source["
+					+ source.getClass().getSimpleName() + "], target["
+					+ target.getClass().getSimpleName() + "]");
 			return;
 		}
 
-		List<String> ignoredProperties = new ArrayList<String>();
+		// List<String> ignoredProperties = new ArrayList<String>();
 		PropertyDescriptor[] propertyDescriptors = BeanUtils
 				.getPropertyDescriptors(source.getClass());
 
 		//
 		for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
 
+			// Find id using annotation
+			// if (AnnotationUtils.getAnnotation(propertyDescriptor.get,
+			// annotationType)
+
 			// TODO Use annotation to identify the real id field
 			if (propertyDescriptor.getName().toLowerCase().equals("id")) {
-				ignoredProperties.add(propertyDescriptor.getName());
+				// ignoredProperties.add(propertyDescriptor.getName());
+				continue;
+			} else if (propertyDescriptor.getName().toLowerCase()
+					.equals("class")) {
 				continue;
 			}
 
-			Method readMethod = null;
+			Object[] valueObjects = new Object[1];
+
+			Method readMethod = propertyDescriptor.getReadMethod();
+			Method writeMethod = propertyDescriptor.getWriteMethod();
 
 			switch (merge.getStrategy()) {
 
 			case MERGE_NON_NULL_TARGET_FIELDS:
 				// find that the value is null and not merge adding to the
 				// ignored list
-				readMethod = propertyDescriptor.getReadMethod();
-				if (readMethod.invoke(target, new Object[0]) == null) {
-					ignoredProperties.add(propertyDescriptor.getName());
+				valueObjects[0] = readMethod.invoke(target, new Object[0]);
+				if (valueObjects[0] != null) {
+					writeMethod.invoke(target, valueObjects);
+				}
+				break;
+
+			case MERGE_NULL_TARGET_FIELDS:
+				// find that the value is null and not merge adding to the
+				// ignored list
+				valueObjects[0] = readMethod.invoke(target, new Object[0]);
+				if (valueObjects[0] == null) {
+					writeMethod.invoke(target, valueObjects);
 				}
 				break;
 
 			case MERGE_NON_NULL_SOURCE_FIELDS:
 				// find that the value is null and not merge adding to the
 				// ignored list
-				readMethod = propertyDescriptor.getReadMethod();
-				if (readMethod.invoke(source, new Object[0]) == null) {
-					ignoredProperties.add(propertyDescriptor.getName());
+				valueObjects[0] = readMethod.invoke(source, new Object[0]);
+				if (valueObjects[0] != null) {
+					writeMethod.invoke(target, valueObjects);
 				}
 				break;
 
 			case MERGE_ALL_FIELDS:
-				//
+				// All values will be merged
+				valueObjects[0] = readMethod.invoke(source, new Object[0]);
+				Object toReplace = readMethod.invoke(target, new Object[0]);
+				if (!EqualsBuilder.reflectionEquals(valueObjects[0], toReplace,
+						true)) {
+					writeMethod.invoke(target, valueObjects);
+				}
 				break;
 			default:
+
+				LOGGER.warn("The Merge strategy [" + merge.getStrategy()
+						+ "] was not implemented, no action will be taken.");
+
 				break;
 			}
 
 		}
 
-		//
-		BeanUtils
-				.copyProperties(source, target, ignoredProperties
-						.toArray(new String[ignoredProperties.size()]));
-
 	}
+
 }

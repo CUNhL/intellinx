@@ -21,9 +21,13 @@ public class Merge implements BeanNameAware, Serializable {
 
 	private MergeStrategy strategy;
 
+	private String expression;
+
+	private Expression calculatedExpression;
+
 	private String mergeFrom;
 
-	private Expression mergeFromExpression;
+	private Expression calculatedMergeFrom;
 
 	public MergeStrategy getStrategy() {
 		return strategy;
@@ -41,12 +45,28 @@ public class Merge implements BeanNameAware, Serializable {
 		this.mergeFrom = mergeFrom;
 	}
 
-	public Expression getMergeFromExpression() {
-		return mergeFromExpression;
+	public String getExpression() {
+		return expression;
 	}
 
-	public void setMergeFromExpression(Expression mergeFromExpression) {
-		this.mergeFromExpression = mergeFromExpression;
+	public void setExpression(String expression) {
+		this.expression = expression;
+	}
+
+	public Expression getCalculatedExpression() {
+		return calculatedExpression;
+	}
+
+	public void setCalculatedExpression(Expression calculatedExpression) {
+		this.calculatedExpression = calculatedExpression;
+	}
+
+	public Expression getCalculatedMergeFrom() {
+		return calculatedMergeFrom;
+	}
+
+	public void setCalculatedMergeFrom(Expression calculatedMergeFrom) {
+		this.calculatedMergeFrom = calculatedMergeFrom;
 	}
 
 	public String getBeanName() {

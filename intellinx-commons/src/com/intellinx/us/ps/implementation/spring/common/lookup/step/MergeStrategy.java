@@ -15,6 +15,9 @@ public enum MergeStrategy {
 	DO_NOT_MERGE_FIELDS,
 
 	/**
+	 * 
+	 * basically merge all fields that has different values
+	 * 
 	 * if the field contain value > message updates record if the field does not
 	 * contain value > message updates record, but the id fields
 	 */
@@ -33,6 +36,8 @@ public enum MergeStrategy {
 	 * 
 	 */
 	MERGE_NON_NULL_SOURCE_FIELDS,
+	
+	MERGE_NULL_TARGET_FIELDS,
 
 	/**
 	 * 
