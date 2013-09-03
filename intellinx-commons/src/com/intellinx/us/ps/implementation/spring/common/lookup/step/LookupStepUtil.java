@@ -286,8 +286,7 @@ public class LookupStepUtil {
 				toReplace = readMethod.invoke(target, new Object[0]);
 				if (valueObjects[0] != null
 						&& !(valueObjects[0] instanceof Collection)
-						&& !EqualsBuilder.reflectionEquals(valueObjects[0],
-								toReplace, true)) {
+						&& !valueObjects[0].equals(toReplace)) {
 					writeMethod.invoke(target, valueObjects);
 				}
 				break;
@@ -297,7 +296,7 @@ public class LookupStepUtil {
 				valueObjects[0] = readMethod.invoke(source, new Object[0]);
 				toReplace = readMethod.invoke(target, new Object[0]);
 				if (!EqualsBuilder.reflectionEquals(valueObjects[0], toReplace,
-						true)) {
+						false)) {
 					writeMethod.invoke(target, valueObjects);
 				}
 				break;
@@ -312,5 +311,4 @@ public class LookupStepUtil {
 		}
 
 	}
-
 }
