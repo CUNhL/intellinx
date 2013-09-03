@@ -4,6 +4,7 @@ import java.beans.PropertyDescriptor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -245,6 +246,7 @@ public class LookupStepUtil {
 			}
 
 			Object[] valueObjects = new Object[1];
+			Object toReplace = null;
 
 			Method readMethod = propertyDescriptor.getReadMethod();
 			Method writeMethod = propertyDescriptor.getWriteMethod();
@@ -278,10 +280,22 @@ public class LookupStepUtil {
 				}
 				break;
 
+			case MERGE_NON_NULL_NON_COLLECTIONS_SOURCE_FIELDS:
+
+				valueObjects[0] = readMethod.invoke(source, new Object[0]);
+				toReplace = readMethod.invoke(target, new Object[0]);
+				if (valueObjects[0] != null
+						&& !(valueObjects[0] instanceof Collection)
+						&& !EqualsBuilder.reflectionEquals(valueObjects[0],
+								toReplace, true)) {
+					writeMethod.invoke(target, valueObjects);
+				}
+				break;
+
 			case MERGE_ALL_FIELDS:
 				// All values will be merged
 				valueObjects[0] = readMethod.invoke(source, new Object[0]);
-				Object toReplace = readMethod.invoke(target, new Object[0]);
+				toReplace = readMethod.invoke(target, new Object[0]);
 				if (!EqualsBuilder.reflectionEquals(valueObjects[0], toReplace,
 						true)) {
 					writeMethod.invoke(target, valueObjects);

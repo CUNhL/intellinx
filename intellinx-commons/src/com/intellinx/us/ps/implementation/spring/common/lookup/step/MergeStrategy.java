@@ -37,6 +37,13 @@ public enum MergeStrategy {
 	 */
 	MERGE_NON_NULL_SOURCE_FIELDS,
 	
+	/**
+	 * if the field on the source object contains value > message updates record<br>
+	 * if the field does not contains value > message DOES NOT update record
+	 * field shall not be a collection
+	 */
+	MERGE_NON_NULL_NON_COLLECTIONS_SOURCE_FIELDS,
+
 	MERGE_NULL_TARGET_FIELDS,
 
 	/**
