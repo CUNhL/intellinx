@@ -10,6 +10,7 @@ import org.apache.commons.pool.PoolableObjectFactory;
 import org.drools.KnowledgeBase;
 import org.drools.logger.KnowledgeRuntimeLogger;
 import org.drools.logger.KnowledgeRuntimeLoggerFactory;
+import org.drools.runtime.StatefulKnowledgeSession;
 import org.drools.runtime.StatelessKnowledgeSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +64,9 @@ public class KnowledgeSessionFactory extends
 		super.activateObject(knowledgeSession);
 	}
 
+	/**
+	 * 
+	 */
 	@Override
 	public void passivateObject(StatelessKnowledgeSession knowledgeSession)
 			throws Exception {
@@ -95,6 +99,27 @@ public class KnowledgeSessionFactory extends
 							+ getBeanName() + "_" + ksession.hashCode() + "_"
 							+ Calendar.getInstance().getTimeInMillis());
 			loggers.put(ksession, logger);
+		}
+	}
+
+	/**
+	 * 
+	 */
+	public void clean(int sessionId) {
+		for (StatefulKnowledgeSession session : knowledgeBase
+				.getStatefulKnowledgeSessions()) {
+			if (session.getId() == sessionId)
+				session.dispose();
+		}
+	}
+
+	/**
+	 * 
+	 */
+	public void cleanExprired() {
+		for (StatefulKnowledgeSession session : knowledgeBase
+				.getStatefulKnowledgeSessions()) {
+			session.dispose();
 		}
 	}
 
