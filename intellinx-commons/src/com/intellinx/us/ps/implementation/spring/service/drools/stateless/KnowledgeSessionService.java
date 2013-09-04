@@ -7,7 +7,7 @@ import org.apache.commons.pool.ObjectPool;
 import org.apache.commons.pool.impl.StackObjectPool;
 import org.drools.command.Command;
 import org.drools.command.CommandFactory;
-import org.drools.runtime.StatelessKnowledgeSession;
+import org.drools.runtime.CommandExecutor;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.Logger;
@@ -52,7 +52,7 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	private KnowledgeSessionFactory knowledgeSessionFactory;
 
-	private ObjectPool<StatelessKnowledgeSession> pool;
+	private ObjectPool<CommandExecutor> pool;
 
 	private List<AbstractStep> steps;
 
@@ -104,8 +104,8 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 		}
 
 		// Pool of Drools Sessions
-		pool = new StackObjectPool<StatelessKnowledgeSession>(
-				knowledgeSessionFactory, getPoolSize());
+		pool = new StackObjectPool<CommandExecutor>(knowledgeSessionFactory,
+				getPoolSize());
 
 		// Evaluation Context
 		StandardEvaluationContext standardEvaluationContext = new StandardEvaluationContext();
@@ -135,7 +135,7 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			stopWatch = new Slf4JStopWatch("KnowledgeSessionService",
 					this.getBeanName(), LOGGER_PERFORMANCE);
 
-		StatelessKnowledgeSession knowledgeSession = null;
+		CommandExecutor knowledgeSession = null;
 
 		try {
 
