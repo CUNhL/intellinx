@@ -8,12 +8,10 @@ import java.util.Map;
 import org.apache.commons.pool.BasePoolableObjectFactory;
 import org.apache.commons.pool.PoolableObjectFactory;
 import org.drools.KnowledgeBase;
-import org.drools.definition.rule.Global;
 import org.drools.event.KnowledgeRuntimeEventManager;
 import org.drools.logger.KnowledgeRuntimeLogger;
 import org.drools.logger.KnowledgeRuntimeLoggerFactory;
 import org.drools.runtime.CommandExecutor;
-import org.drools.runtime.Globals;
 import org.drools.runtime.StatefulKnowledgeSession;
 import org.drools.runtime.StatelessKnowledgeSession;
 import org.drools.runtime.rule.FactHandle;
@@ -44,8 +42,6 @@ public class KnowledgeSessionFactory extends
 	private String logfolder;
 
 	private KnowledgeSessionFactoryMode mode;
-
-	private boolean destroyAfterUsing;
 
 	/**
 	 * 
@@ -102,10 +98,10 @@ public class KnowledgeSessionFactory extends
 				session.retract(factHandle);
 			}
 			// Clean Globals
-			//Globals aGlobals;
-			//for (Global global : session.getGlobals().) {
-			//	session.retract(factHandle);
-			//}
+			// Globals aGlobals;
+			// for (Global global : session.getGlobals().) {
+			// session.retract(factHandle);
+			// }
 		}
 
 		super.passivateObject(knowledgeSession);
@@ -133,10 +129,7 @@ public class KnowledgeSessionFactory extends
 	 */
 	@Override
 	public boolean validateObject(CommandExecutor obj) {
-		if (destroyAfterUsing)
-			return false;
-		else
-			return super.validateObject(obj);
+		return super.validateObject(obj);
 	}
 
 	/**
@@ -194,14 +187,6 @@ public class KnowledgeSessionFactory extends
 
 	public void setMode(KnowledgeSessionFactoryMode mode) {
 		this.mode = mode;
-	}
-
-	public boolean isDestroyAfterUsing() {
-		return destroyAfterUsing;
-	}
-
-	public void setDestroyAfterUsing(boolean destroyAfterUsing) {
-		this.destroyAfterUsing = destroyAfterUsing;
 	}
 
 }

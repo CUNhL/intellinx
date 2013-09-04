@@ -68,6 +68,8 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	private StepUtil stepUtil;
 
+	private boolean destroyAfterUsing;
+
 	/**
 	 * 
 	 */
@@ -182,7 +184,11 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 							+ message.toString() + "]", e);
 		} finally {
 			try {
-				pool.returnObject(knowledgeSession);
+				if (!destroyAfterUsing) {
+					pool.returnObject(knowledgeSession);
+				} else {
+					pool.invalidateObject(knowledgeSession);
+				}
 			} catch (Exception e) {
 				LOGGER.error(
 						"Error returning session to the pool for the message ["
@@ -236,6 +242,14 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	public void setPoolSize(int poolSize) {
 		this.poolSize = poolSize;
+	}
+
+	public boolean isDestroyAfterUsing() {
+		return destroyAfterUsing;
+	}
+
+	public void setDestroyAfterUsing(boolean destroyAfterUsing) {
+		this.destroyAfterUsing = destroyAfterUsing;
 	}
 
 }
