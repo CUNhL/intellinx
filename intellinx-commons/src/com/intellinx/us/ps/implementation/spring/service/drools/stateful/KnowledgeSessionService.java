@@ -162,7 +162,8 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 			List<Command<?>> commands = new ArrayList<Command<?>>();
 
-			boolean isNewSession = knowledgeSession.getFactCount() > 0;
+			//System.out.println("KNOWLEDGE SESSION FACT COUNT = " + knowledgeSession.getFactCount());
+			boolean isNewSession = (knowledgeSession.getFactCount() == 0);
 
 			for (AbstractStep step : steps) {
 
