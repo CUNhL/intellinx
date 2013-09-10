@@ -15,6 +15,8 @@ public abstract class AbstractStep implements BeanNameAware {
 	private String beanName;
 
 	private Target target;
+	
+	private Type type;
 
 	private String parameter;
 
@@ -70,6 +72,14 @@ public abstract class AbstractStep implements BeanNameAware {
 
 	public void setApplicationCache(IApplicationCache<?> applicationCache) {
 		this.applicationCache = applicationCache;
+	}
+
+	public Type getType() {
+		return type;
+	}
+
+	public void setType(Type type) {
+		this.type = type;
 	}
 
 }
