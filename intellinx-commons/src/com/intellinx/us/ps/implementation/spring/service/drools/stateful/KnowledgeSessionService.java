@@ -1,6 +1,7 @@
 package com.intellinx.us.ps.implementation.spring.service.drools.stateful;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.pool.ObjectPool;
@@ -70,6 +71,10 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 	private int poolSize;
 
 	private StepUtil stepUtil;
+	
+	private int updateInterval = 0;
+	
+	private Date lastUpdated;
 
 	/**
 	 * 
@@ -116,6 +121,8 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 		standardEvaluationContext.setBeanResolver(beanResolver);
 
 		evaluationContext = standardEvaluationContext;
+		
+		lastUpdated = new Date();
 
 	}
 
@@ -143,7 +150,13 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 		try {
 
 			// TODO Check if time expired and invalidate pool's map
-			// knowledgeSessionFactory.invalidatePool();
+			if(updateInterval > 0){
+				Date tempDate = new Date();
+				if(tempDate.getTime() - lastUpdated.getTime() > updateInterval * 60000){
+					knowledgeSessionFactory.invalidatePool();
+					lastUpdated = tempDate;
+				}
+			}
 
 			knowledgeSession = pool.borrowObject();
 
@@ -250,6 +263,14 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	public void setPoolSize(int poolSize) {
 		this.poolSize = poolSize;
+	}
+
+	public int getUpdateInterval() {
+		return updateInterval;
+	}
+
+	public void setUpdateInterval(int updateInterval) {
+		this.updateInterval = updateInterval;
 	}
 
 }
