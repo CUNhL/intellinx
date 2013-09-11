@@ -6,10 +6,14 @@ import java.util.List;
 
 import org.apache.commons.pool.ObjectPool;
 import org.apache.commons.pool.impl.StackObjectPool;
+import org.drools.base.MapGlobalResolver;
 import org.drools.command.Command;
 import org.drools.command.CommandFactory;
 import org.drools.command.runtime.rule.FireAllRulesCommand;
+import org.drools.command.runtime.rule.GetObjectsCommand;
 import org.drools.command.runtime.rule.HaltCommand;
+import org.drools.runtime.ClassObjectFilter;
+import org.drools.runtime.ObjectFilter;
 import org.drools.runtime.StatefulKnowledgeSession;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
@@ -35,6 +39,7 @@ import com.intellinx.us.ps.implementation.spring.service.drools.common.step.Abst
 import com.intellinx.us.ps.implementation.spring.service.drools.common.step.ExpressionStep;
 import com.intellinx.us.ps.implementation.spring.service.drools.common.step.HqlStep;
 import com.intellinx.us.ps.implementation.spring.service.drools.common.step.StepUtil;
+import com.intellinx.us.ps.implementation.spring.service.drools.common.step.Target;
 import com.intellinx.us.ps.implementation.spring.service.drools.common.step.Type;
 
 /**
@@ -96,7 +101,13 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			for (AbstractStep step : steps) {
 
 				stepUtil.prepare(step);
-
+				
+				if(step.getTarget() == Target.FACT){
+					Assert.notNull(step.getType(), "Type is required for steps with target FACT");
+					if(step.getType() == Type.NEW){
+						Assert.notNull(step.getFactClass(), "FactClass is required for steps with target FACT and type NEW");
+					}
+				}
 				if (step instanceof HqlStep) {
 					stepUtil.prepare((HqlStep) step);
 				} else if (step instanceof ExpressionStep) {
@@ -149,7 +160,7 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 		try {
 
-			// TODO Check if time expired and invalidate pool's map
+			// Check if time expired and invalidate pool's map
 			if(updateInterval > 0){
 				Date tempDate = new Date();
 				if(tempDate.getTime() - lastUpdated.getTime() > updateInterval * 60000){
@@ -162,12 +173,46 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 			List<Command<?>> commands = new ArrayList<Command<?>>();
 
-			//System.out.println("KNOWLEDGE SESSION FACT COUNT = " + knowledgeSession.getFactCount());
-			boolean isNewSession = (knowledgeSession.getFactCount() == 0);
+			boolean isNewSession = (knowledgeSession.getFactCount() == 0 && ((MapGlobalResolver)knowledgeSession.getGlobals()).getGlobals().length == 0);
 
 			for (AbstractStep step : steps) {
+				
+				if(!isNewSession && step.getType() == Type.NEW && step.getTarget() == Target.FACT){
+					//retract specific classes from previous runs
+					if(!(step instanceof ExpressionStep)){
+						LOGGER.error("Can only retract ExpressionSteps. Non expression steps cannot be set to target FACT and type NEW. Returning.");
+						return message;
+					}
+					
+					/*Object object = ((ExpressionStep)step).getExpressionsParsed().getValue(evaluationContext, message);
+					if(object instanceof Collection<?>){
+						Collection<?> collection = (Collection<?>) object;
+						if(collection.isEmpty()){
+							//screwed
+							object = null;
+						}
+						else{
+							object = collection.iterator().next();
+						}
+					}
+					if(object != null){
+						ObjectFilter objectFilter = new ClassObjectFilter(object.getClass());
+						commands.add(new GetObjectsCommand(objectFilter));//can't tell from doc if this retracts or not. I'm hoping does.
+					}*/
+					
+					ObjectFilter objectFilter = new ClassObjectFilter(Class.forName(step.getFactClass()));
+					commands.add(new GetObjectsCommand(objectFilter));//can't tell from doc if this retracts or not. I'm hoping does.
+					
+					
+//					Collection<FactHandle> factHandles = knowledgeSession.getFactHandles(objectFilter);
+//					ObjectFilter objectFilter = new ClassFilter(objectClass);
+//					if (factHandles != null && !factHandles.isEmpty()) {
+//						for (FactHandle factHandle : factHandles) {
+//							cmds.add(new RetractCommand(factHandle));
+//						}
+				}
 
-				if (isNewSession || step.getType() == Type.NEW) {
+				if (isNewSession || step.getType() == Type.NEW || step.getTarget() == Target.GLOBALS) {
 
 					if (!stepUtil.createBatchExecutionCommandFromCache(this,
 							commands, message, step)) {
@@ -196,6 +241,7 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			// Add fireAllRules command
 			commands.add(new FireAllRulesCommand());
 			commands.add(new HaltCommand());
+			
 			// Execute the commands prepared
 			knowledgeSession
 					.execute(CommandFactory.newBatchExecution(commands));
