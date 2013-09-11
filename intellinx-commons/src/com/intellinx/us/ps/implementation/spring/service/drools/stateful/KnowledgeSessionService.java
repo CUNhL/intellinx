@@ -1,6 +1,7 @@
 package com.intellinx.us.ps.implementation.spring.service.drools.stateful;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
@@ -10,11 +11,12 @@ import org.drools.base.MapGlobalResolver;
 import org.drools.command.Command;
 import org.drools.command.CommandFactory;
 import org.drools.command.runtime.rule.FireAllRulesCommand;
-import org.drools.command.runtime.rule.GetObjectsCommand;
 import org.drools.command.runtime.rule.HaltCommand;
+import org.drools.command.runtime.rule.RetractCommand;
 import org.drools.runtime.ClassObjectFilter;
 import org.drools.runtime.ObjectFilter;
 import org.drools.runtime.StatefulKnowledgeSession;
+import org.drools.runtime.rule.FactHandle;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.Logger;
@@ -200,8 +202,16 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 						commands.add(new GetObjectsCommand(objectFilter));//can't tell from doc if this retracts or not. I'm hoping does.
 					}*/
 					
+//					ObjectFilter objectFilter = new ClassObjectFilter(Class.forName(step.getFactClass()));
+//					commands.add(new GetObjectsCommand(objectFilter));//can't tell from doc if this retracts or not. I'm hoping does.
+					
 					ObjectFilter objectFilter = new ClassObjectFilter(Class.forName(step.getFactClass()));
-					commands.add(new GetObjectsCommand(objectFilter));//can't tell from doc if this retracts or not. I'm hoping does.
+					Collection<FactHandle> factHandles = knowledgeSession.getFactHandles(objectFilter);
+					if (factHandles != null && !factHandles.isEmpty()) {
+						for (FactHandle factHandle : factHandles) {
+							commands.add(new RetractCommand(factHandle));
+						}
+					}
 					
 					
 //					Collection<FactHandle> factHandles = knowledgeSession.getFactHandles(objectFilter);
