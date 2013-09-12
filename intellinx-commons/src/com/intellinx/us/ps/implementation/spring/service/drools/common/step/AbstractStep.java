@@ -18,7 +18,7 @@ public abstract class AbstractStep implements BeanNameAware {
 	
 	private Type type;
 	
-	private String factClass;
+//	private String factClass;
 
 	private String parameter;
 
@@ -82,14 +82,6 @@ public abstract class AbstractStep implements BeanNameAware {
 
 	public void setType(Type type) {
 		this.type = type;
-	}
-
-	public String getFactClass() {
-		return factClass;
-	}
-
-	public void setFactClass(String factClass) {
-		this.factClass = factClass;
 	}
 
 	

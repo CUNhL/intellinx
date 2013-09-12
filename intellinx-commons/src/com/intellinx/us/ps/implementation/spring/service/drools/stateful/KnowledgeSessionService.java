@@ -13,7 +13,6 @@ import org.drools.command.CommandFactory;
 import org.drools.command.runtime.rule.FireAllRulesCommand;
 import org.drools.command.runtime.rule.HaltCommand;
 import org.drools.command.runtime.rule.RetractCommand;
-import org.drools.runtime.ClassObjectFilter;
 import org.drools.runtime.ObjectFilter;
 import org.drools.runtime.StatefulKnowledgeSession;
 import org.drools.runtime.rule.FactHandle;
@@ -78,9 +77,9 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 	private int poolSize;
 
 	private StepUtil stepUtil;
-	
+
 	private int updateInterval = 0;
-	
+
 	private Date lastUpdated;
 
 	/**
@@ -103,12 +102,16 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			for (AbstractStep step : steps) {
 
 				stepUtil.prepare(step);
-				
-				if(step.getTarget() == Target.FACT){
-					Assert.notNull(step.getType(), "Type is required for steps with target FACT");
-					if(step.getType() == Type.NEW){
-						Assert.notNull(step.getFactClass(), "FactClass is required for steps with target FACT and type NEW");
-					}
+
+				if (step.getTarget() == Target.FACT) {
+					Assert.notNull(step.getType(),
+							"Type is required for steps with target FACT");
+					/*
+					 * if(step.getType() == Type.NEW){
+					 * Assert.notNull(step.getFactClass(),
+					 * "FactClass is required for steps with target FACT and type NEW"
+					 * ); }
+					 */
 				}
 				if (step instanceof HqlStep) {
 					stepUtil.prepare((HqlStep) step);
@@ -134,7 +137,7 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 		standardEvaluationContext.setBeanResolver(beanResolver);
 
 		evaluationContext = standardEvaluationContext;
-		
+
 		lastUpdated = new Date();
 
 	}
@@ -163,9 +166,9 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 		try {
 
 			// Check if time expired and invalidate pool's map
-			if(updateInterval > 0){
+			if (updateInterval > 0) {
 				Date tempDate = new Date();
-				if(tempDate.getTime() - lastUpdated.getTime() > updateInterval * 60000){
+				if (tempDate.getTime() - lastUpdated.getTime() > updateInterval * 60000) {
 					knowledgeSessionFactory.invalidatePool();
 					lastUpdated = tempDate;
 				}
@@ -175,54 +178,66 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 			List<Command<?>> commands = new ArrayList<Command<?>>();
 
-			boolean isNewSession = (knowledgeSession.getFactCount() == 0 && ((MapGlobalResolver)knowledgeSession.getGlobals()).getGlobals().length == 0);
+			boolean isNewSession = (knowledgeSession.getFactCount() == 0 && ((MapGlobalResolver) knowledgeSession
+					.getGlobals()).getGlobals().length == 0);
 
 			for (AbstractStep step : steps) {
 				
-				if(!isNewSession && step.getType() == Type.NEW && step.getTarget() == Target.FACT){
-					//retract specific classes from previous runs
-					if(!(step instanceof ExpressionStep)){
-						LOGGER.error("Can only retract ExpressionSteps. Non expression steps cannot be set to target FACT and type NEW. Returning.");
-						return message;
-					}
-					
-					/*Object object = ((ExpressionStep)step).getExpressionsParsed().getValue(evaluationContext, message);
-					if(object instanceof Collection<?>){
-						Collection<?> collection = (Collection<?>) object;
-						if(collection.isEmpty()){
-							//screwed
-							object = null;
-						}
-						else{
-							object = collection.iterator().next();
-						}
-					}
-					if(object != null){
-						ObjectFilter objectFilter = new ClassObjectFilter(object.getClass());
-						commands.add(new GetObjectsCommand(objectFilter));//can't tell from doc if this retracts or not. I'm hoping does.
-					}*/
-					
-//					ObjectFilter objectFilter = new ClassObjectFilter(Class.forName(step.getFactClass()));
-//					commands.add(new GetObjectsCommand(objectFilter));//can't tell from doc if this retracts or not. I'm hoping does.
-					
-					ObjectFilter objectFilter = new ClassObjectFilter(Class.forName(step.getFactClass()));
-					Collection<FactHandle> factHandles = knowledgeSession.getFactHandles(objectFilter);
+
+				 if(!isNewSession && step.getType() == Type.NEW && step.getTarget() == Target.FACT){
+				// retract specific classes from previous runs
+				/*
+				 * if(!(step instanceof ExpressionStep)){ LOGGER.error(
+				 * "Can only retract ExpressionSteps. Non expression steps cannot be set to target FACT and type NEW. Returning."
+				 * ); return message; }
+				 */
+
+				/*
+				 * Object object =
+				 * ((ExpressionStep)step).getExpressionsParsed().
+				 * getValue(evaluationContext, message); if(object instanceof
+				 * Collection<?>){ Collection<?> collection = (Collection<?>)
+				 * object; if(collection.isEmpty()){ //screwed object = null; }
+				 * else{ object = collection.iterator().next(); } } if(object !=
+				 * null){ ObjectFilter objectFilter = new
+				 * ClassObjectFilter(object.getClass()); commands.add(new
+				 * GetObjectsCommand(objectFilter));//can't tell from doc if
+				 * this retracts or not. I'm hoping does. }
+				 */
+
+				/*
+				 * ObjectFilter objectFilter = new
+				 * ClassObjectFilter(Class.forName(step.getFactClass()));
+				 * Collection<FactHandle> factHandles =
+				 * knowledgeSession.getFactHandles(objectFilter); if
+				 * (factHandles != null && !factHandles.isEmpty()) { for
+				 * (FactHandle factHandle : factHandles) { commands.add(new
+				 * RetractCommand(factHandle)); } }
+				 */
+				
+				
+					ObjectFilter objectFilter = new IdentifierObjectFilter(
+							step.getBeanName());
+					Collection<FactHandle> factHandles = knowledgeSession
+							.getFactHandles(objectFilter);
 					if (factHandles != null && !factHandles.isEmpty()) {
 						for (FactHandle factHandle : factHandles) {
 							commands.add(new RetractCommand(factHandle));
 						}
+						if (LOGGER_PERFORMANCE.isDebugEnabled())
+							stopWatch.lap("KnowledgeSessionService",
+									"After Retract Step [" + step.getBeanName()
+											+ "/"
+											+ step.getClass().getSimpleName()
+											+ "] command(s) to retract "
+											+ factHandles.size()
+											+ " facts added");
 					}
-					
-					
-//					Collection<FactHandle> factHandles = knowledgeSession.getFactHandles(objectFilter);
-//					ObjectFilter objectFilter = new ClassFilter(objectClass);
-//					if (factHandles != null && !factHandles.isEmpty()) {
-//						for (FactHandle factHandle : factHandles) {
-//							cmds.add(new RetractCommand(factHandle));
-//						}
-				}
 
-				if (isNewSession || step.getType() == Type.NEW || step.getTarget() == Target.GLOBALS) {
+				 }
+
+				if (isNewSession || step.getType() == Type.NEW
+						|| step.getTarget() == Target.GLOBALS) {
 
 					if (!stepUtil.createBatchExecutionCommandFromCache(this,
 							commands, message, step)) {
@@ -251,14 +266,44 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			// Add fireAllRules command
 			commands.add(new FireAllRulesCommand());
 			commands.add(new HaltCommand());
-			
+
 			// Execute the commands prepared
-			knowledgeSession
-					.execute(CommandFactory.newBatchExecution(commands));
+			//ExecutionResults results = 
+					knowledgeSession.execute(CommandFactory
+					.newBatchExecution(commands));
 
 			if (LOGGER_PERFORMANCE.isTraceEnabled())
 				stopWatch.lap("KnowledgeSessionService",
 						"Transform-After execute command");
+
+			// retract specific facts from previous run
+			/*commands.clear();
+			for (AbstractStep step : steps) {
+				if (!isNewSession && step.getType() == Type.NEW
+						&& step.getTarget() == Target.FACT) {
+					@SuppressWarnings("unchecked")
+					Collection<FactHandle> factHandles = (Collection<FactHandle>) results
+							.getFactHandle(step.getBeanName());
+					if (factHandles != null && !factHandles.isEmpty()) {
+						for (FactHandle factHandle : factHandles) {
+							commands.add(new RetractCommand(factHandle));
+						}
+						if (LOGGER_PERFORMANCE.isDebugEnabled())
+							stopWatch.lap("KnowledgeSessionService",
+									"After Retract Step [" + step.getBeanName()
+											+ "/"
+											+ step.getClass().getSimpleName()
+											+ "] command(s) to retract "
+											+ factHandles.size()
+											+ " facts added");
+					}
+				}
+			}
+			knowledgeSession
+					.execute(CommandFactory.newBatchExecution(commands));
+			if (LOGGER_PERFORMANCE.isTraceEnabled())
+				stopWatch.lap("KnowledgeSessionService",
+						"Transform-After execute retract command");*/
 
 		} catch (Exception e) {
 			LOGGER.error(
