@@ -181,10 +181,26 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			boolean isNewSession = (knowledgeSession.getFactCount() == 0 && ((MapGlobalResolver) knowledgeSession
 					.getGlobals()).getGlobals().length == 0);
 
-			for (AbstractStep step : steps) {
-				
+			if (!isNewSession) {
+				// retract all but target fact type update from previous runs
+				ObjectFilter objectFilter = new IdentifierObjectFilter();
+				Collection<FactHandle> factHandles = knowledgeSession
+						.getFactHandles(objectFilter);
+				if (factHandles != null && !factHandles.isEmpty()) {
+					for (FactHandle factHandle : factHandles) {
+						commands.add(new RetractCommand(factHandle));
+					}
+					if (LOGGER_PERFORMANCE.isDebugEnabled())
+						stopWatch.lap("KnowledgeSessionService",
+								"After Retract, added " + factHandles.size()
+										+ " command(s) to retract facts");
+				}
+			}
 
-				 if(!isNewSession && step.getType() == Type.NEW && step.getTarget() == Target.FACT){
+			for (AbstractStep step : steps) {
+
+				// if(!isNewSession && step.getType() == Type.NEW &&
+				// step.getTarget() == Target.FACT){
 				// retract specific classes from previous runs
 				/*
 				 * if(!(step instanceof ExpressionStep)){ LOGGER.error(
@@ -214,27 +230,22 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 				 * (FactHandle factHandle : factHandles) { commands.add(new
 				 * RetractCommand(factHandle)); } }
 				 */
-				
-				
-					ObjectFilter objectFilter = new IdentifierObjectFilter(
-							step.getBeanName());
-					Collection<FactHandle> factHandles = knowledgeSession
-							.getFactHandles(objectFilter);
-					if (factHandles != null && !factHandles.isEmpty()) {
-						for (FactHandle factHandle : factHandles) {
-							commands.add(new RetractCommand(factHandle));
-						}
-						if (LOGGER_PERFORMANCE.isDebugEnabled())
-							stopWatch.lap("KnowledgeSessionService",
-									"After Retract Step [" + step.getBeanName()
-											+ "/"
-											+ step.getClass().getSimpleName()
-											+ "] command(s) to retract "
-											+ factHandles.size()
-											+ " facts added");
-					}
 
-				 }
+				/*
+				 * ObjectFilter objectFilter = new IdentifierObjectFilter(
+				 * step.getBeanName()); Collection<FactHandle> factHandles =
+				 * knowledgeSession .getFactHandles(objectFilter); if
+				 * (factHandles != null && !factHandles.isEmpty()) { for
+				 * (FactHandle factHandle : factHandles) { commands.add(new
+				 * RetractCommand(factHandle)); } if
+				 * (LOGGER_PERFORMANCE.isDebugEnabled())
+				 * stopWatch.lap("KnowledgeSessionService",
+				 * "After Retract Step [" + step.getBeanName() + "/" +
+				 * step.getClass().getSimpleName() + "] command(s) to retract "
+				 * + factHandles.size() + " facts added"); }
+				 */
+
+				// }
 
 				if (isNewSession || step.getType() == Type.NEW
 						|| step.getTarget() == Target.GLOBALS) {
@@ -268,42 +279,35 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			commands.add(new HaltCommand());
 
 			// Execute the commands prepared
-			//ExecutionResults results = 
-					knowledgeSession.execute(CommandFactory
-					.newBatchExecution(commands));
+			// ExecutionResults results =
+			knowledgeSession
+					.execute(CommandFactory.newBatchExecution(commands));
 
 			if (LOGGER_PERFORMANCE.isTraceEnabled())
 				stopWatch.lap("KnowledgeSessionService",
 						"Transform-After execute command");
 
 			// retract specific facts from previous run
-			/*commands.clear();
-			for (AbstractStep step : steps) {
-				if (!isNewSession && step.getType() == Type.NEW
-						&& step.getTarget() == Target.FACT) {
-					@SuppressWarnings("unchecked")
-					Collection<FactHandle> factHandles = (Collection<FactHandle>) results
-							.getFactHandle(step.getBeanName());
-					if (factHandles != null && !factHandles.isEmpty()) {
-						for (FactHandle factHandle : factHandles) {
-							commands.add(new RetractCommand(factHandle));
-						}
-						if (LOGGER_PERFORMANCE.isDebugEnabled())
-							stopWatch.lap("KnowledgeSessionService",
-									"After Retract Step [" + step.getBeanName()
-											+ "/"
-											+ step.getClass().getSimpleName()
-											+ "] command(s) to retract "
-											+ factHandles.size()
-											+ " facts added");
-					}
-				}
-			}
-			knowledgeSession
-					.execute(CommandFactory.newBatchExecution(commands));
-			if (LOGGER_PERFORMANCE.isTraceEnabled())
-				stopWatch.lap("KnowledgeSessionService",
-						"Transform-After execute retract command");*/
+			/*
+			 * commands.clear(); for (AbstractStep step : steps) { if
+			 * (!isNewSession && step.getType() == Type.NEW && step.getTarget()
+			 * == Target.FACT) {
+			 * 
+			 * @SuppressWarnings("unchecked") Collection<FactHandle> factHandles
+			 * = (Collection<FactHandle>) results
+			 * .getFactHandle(step.getBeanName()); if (factHandles != null &&
+			 * !factHandles.isEmpty()) { for (FactHandle factHandle :
+			 * factHandles) { commands.add(new RetractCommand(factHandle)); } if
+			 * (LOGGER_PERFORMANCE.isDebugEnabled())
+			 * stopWatch.lap("KnowledgeSessionService", "After Retract Step [" +
+			 * step.getBeanName() + "/" + step.getClass().getSimpleName() +
+			 * "] command(s) to retract " + factHandles.size() +
+			 * " facts added"); } } } knowledgeSession
+			 * .execute(CommandFactory.newBatchExecution(commands)); if
+			 * (LOGGER_PERFORMANCE.isTraceEnabled())
+			 * stopWatch.lap("KnowledgeSessionService",
+			 * "Transform-After execute retract command");
+			 */
 
 		} catch (Exception e) {
 			LOGGER.error(

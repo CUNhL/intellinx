@@ -320,7 +320,7 @@ public class StepUtil {
 			switch (step.getTarget()) {
 			case FACT:
 
-				if (stateful) {
+				if (stateful && step.getType() == Type.UPDATE) {
 					if (object instanceof Collection<?>) {
 						Iterator<?> iterator = ((Collection<?>) object).iterator();
 						while (iterator.hasNext()) {
@@ -330,7 +330,7 @@ public class StepUtil {
 									.getBeanName());
 							}
 							else{
-								LOGGER.error("Stateful fact data does not implement IDroolsFact, returning!!!!!");
+								LOGGER.error("Stateful UPDATE fact data does not implement IDroolsFact, returning!!!!!");
 								return;
 							}
 						}
@@ -340,7 +340,7 @@ public class StepUtil {
 								.getBeanName());
 						}
 						else{
-							LOGGER.error("Stateful fact data does not implement IDroolsFact, returning!!!!!");
+							LOGGER.error("Stateful UPDATE fact data does not implement IDroolsFact, returning!!!!!");
 							return;
 						}
 					}
