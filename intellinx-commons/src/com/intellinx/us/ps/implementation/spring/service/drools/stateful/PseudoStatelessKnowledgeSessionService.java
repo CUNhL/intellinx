@@ -63,7 +63,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 	@Autowired
 	private ApplicationContext applicationContext;
 
-	private PseudoStatelessKnowledgeSessionFactory PseudoStatelessKnowledgeSessionFactory;
+	private PseudoStatelessKnowledgeSessionFactory pseudoStatelessKnowledgeSessionFactory;
 
 	private ObjectPool<StatefulKnowledgeSession> pool;
 
@@ -95,7 +95,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 	@Override
 	public void afterPropertiesSet() throws Exception {
 
-		Assert.notNull(PseudoStatelessKnowledgeSessionFactory);
+		Assert.notNull(pseudoStatelessKnowledgeSessionFactory);
 		Assert.notNull(getBeanName(), "Bean Name is required");
 		Assert.notNull(applicationContext);
 		// Assert.isTrue(poolSize != 0,
@@ -133,7 +133,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 		// Pool of Drools Sessions
 		if (poolSize != 0) {
 			pool = new StackObjectPool<StatefulKnowledgeSession>(
-					PseudoStatelessKnowledgeSessionFactory, getPoolSize());
+					pseudoStatelessKnowledgeSessionFactory, getPoolSize());
 		}
 
 		// Evaluation Context
@@ -180,7 +180,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 				if (disposeInterval > 0) {
 					Date tempDate = new Date();
 					if (tempDate.getTime() - lastDisposed > disposeInterval * 60000) {
-						PseudoStatelessKnowledgeSessionFactory.invalidatePool();
+						pseudoStatelessKnowledgeSessionFactory.invalidatePool();
 						lastDisposed = tempDate.getTime();
 
 						updateMap.clear();
@@ -188,7 +188,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 				}
 				knowledgeSession = pool.borrowObject();
 			} else {
-				knowledgeSession = PseudoStatelessKnowledgeSessionFactory
+				knowledgeSession = pseudoStatelessKnowledgeSessionFactory
 						.getNewStatefulKnowledgeSession();
 			}
 
@@ -396,12 +396,12 @@ public class PseudoStatelessKnowledgeSessionService extends
 	}
 
 	public PseudoStatelessKnowledgeSessionFactory getPseudoStatelessKnowledgeSessionFactory() {
-		return PseudoStatelessKnowledgeSessionFactory;
+		return pseudoStatelessKnowledgeSessionFactory;
 	}
 
 	public void setPseudoStatelessKnowledgeSessionFactory(
 			PseudoStatelessKnowledgeSessionFactory PseudoStatelessKnowledgeSessionFactory) {
-		this.PseudoStatelessKnowledgeSessionFactory = PseudoStatelessKnowledgeSessionFactory;
+		this.pseudoStatelessKnowledgeSessionFactory = PseudoStatelessKnowledgeSessionFactory;
 	}
 
 	public ApplicationContext getApplicationContext() {
