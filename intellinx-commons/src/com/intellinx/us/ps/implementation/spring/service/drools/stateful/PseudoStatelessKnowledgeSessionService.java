@@ -106,8 +106,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 
 				stepUtil.prepare(step);
 
-				Assert.notNull(step.getTarget(),
-						"Target is required");
+				Assert.notNull(step.getTarget(), "Target is required");
 				if (step.getTarget() == Target.FACT) {
 					Assert.notNull(step.getType(),
 							"Type is required for steps with target FACT");
@@ -180,6 +179,10 @@ public class PseudoStatelessKnowledgeSessionService extends
 						lastDisposed = tempDate.getTime();
 
 						updateMap.clear();
+
+						if (LOGGER_PERFORMANCE.isDebugEnabled())
+							stopWatch.lap("KnowledgeSessionService",
+									"After invalidating pool");
 					}
 				}
 				knowledgeSession = pool.borrowObject();
@@ -302,36 +305,12 @@ public class PseudoStatelessKnowledgeSessionService extends
 			commands.add(new HaltCommand());
 
 			// Execute the commands prepared
-			// ExecutionResults results =
 			knowledgeSession
 					.execute(CommandFactory.newBatchExecution(commands));
 
 			if (LOGGER_PERFORMANCE.isTraceEnabled())
 				stopWatch.lap("KnowledgeSessionService",
 						"Transform-After execute command");
-
-			// retract specific facts from result set using factHandles. Could
-			// be problematic if fail before results returned.
-			/*
-			 * commands.clear(); for (AbstractStep step : steps) { if
-			 * (!isNewSession && step.getType() == Type.NEW && step.getTarget()
-			 * == Target.FACT) {
-			 * 
-			 * @SuppressWarnings("unchecked") Collection<FactHandle> factHandles
-			 * = (Collection<FactHandle>) results
-			 * .getFactHandle(step.getBeanName()); if (factHandles != null &&
-			 * !factHandles.isEmpty()) { for (FactHandle factHandle :
-			 * factHandles) { commands.add(new RetractCommand(factHandle)); } if
-			 * (LOGGER_PERFORMANCE.isDebugEnabled())
-			 * stopWatch.lap("KnowledgeSessionService", "After Retract Step [" +
-			 * step.getBeanName() + "/" + step.getClass().getSimpleName() +
-			 * "] command(s) to retract " + factHandles.size() +
-			 * " facts added"); } } } knowledgeSession
-			 * .execute(CommandFactory.newBatchExecution(commands)); if
-			 * (LOGGER_PERFORMANCE.isTraceEnabled())
-			 * stopWatch.lap("KnowledgeSessionService",
-			 * "Transform-After execute retract command");
-			 */
 
 		} catch (Exception e) {
 			LOGGER.error(
@@ -342,7 +321,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 				if (poolSize > 0) {
 					pool.returnObject(knowledgeSession);
 				} else {
-					if(knowledgeSession != null){
+					if (knowledgeSession != null) {
 						knowledgeSession.dispose();
 					}
 				}
