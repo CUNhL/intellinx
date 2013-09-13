@@ -26,14 +26,6 @@ public class IdentifierObjectFilter implements ObjectFilter {
 	 * @return
 	 */
 	public boolean accept(Object object) {
-		// return this.clazz.isAssignableFrom( object.getClass() );
-
-		/*
-		 * if(IDroolsFact.class.isInstance(object)){ System.out.println(
-		 * "Is Instance Of!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-		 * ); }
-		 */
-
 		
 		return IDroolsFact.class.isAssignableFrom(object.getClass())
 				&& this.identifier != null

@@ -71,8 +71,6 @@ public class PseudoStatelessKnowledgeSessionService extends
 
 	private EvaluationContext evaluationContext;
 
-	// When
-
 	private String when;
 
 	private Expression calculatedWhenExpression;
@@ -98,8 +96,6 @@ public class PseudoStatelessKnowledgeSessionService extends
 		Assert.notNull(pseudoStatelessKnowledgeSessionFactory);
 		Assert.notNull(getBeanName(), "Bean Name is required");
 		Assert.notNull(applicationContext);
-		// Assert.isTrue(poolSize != 0,
-		// "The attribute pool size shall be provided");
 
 		stepUtil = new StepUtil(new SpelExpressionParser());
 
@@ -131,7 +127,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 		}
 
 		// Pool of Drools Sessions
-		if (poolSize != 0) {
+		if (poolSize > 0) {
 			pool = new StackObjectPool<StatefulKnowledgeSession>(
 					pseudoStatelessKnowledgeSessionFactory, getPoolSize());
 		}
@@ -143,7 +139,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 
 		evaluationContext = standardEvaluationContext;
 
-		if (disposeInterval != 0) {
+		if (disposeInterval > 0) {
 			lastDisposed = new Date().getTime();
 		}
 
@@ -175,7 +171,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 
 		try {
 
-			if (poolSize != 0) {
+			if (poolSize > 0) {
 				// Check if time expired and invalidate pool's map
 				if (disposeInterval > 0) {
 					Date tempDate = new Date();
@@ -217,39 +213,6 @@ public class PseudoStatelessKnowledgeSessionService extends
 			Long currentMilli = new Date().getTime();
 
 			for (AbstractStep step : steps) {
-
-				// if(!isNewSession && step.getType() == Type.NEW &&
-				// step.getTarget() == Target.FACT){
-
-				// retract specific classes from previous runs using passed
-				// class types. Class types should be unique
-				/*
-				 * ObjectFilter objectFilter = new
-				 * ClassObjectFilter(Class.forName(step.getFactClass()));
-				 * Collection<FactHandle> factHandles =
-				 * knowledgeSession.getFactHandles(objectFilter); if
-				 * (factHandles != null && !factHandles.isEmpty()) { for
-				 * (FactHandle factHandle : factHandles) { commands.add(new
-				 * RetractCommand(factHandle)); } }
-				 */
-
-				// retract specific classes from previous runs using interface.
-				// Won't work on facts added during execution
-				/*
-				 * ObjectFilter objectFilter = new IdentifierObjectFilter(
-				 * step.getBeanName()); Collection<FactHandle> factHandles =
-				 * knowledgeSession .getFactHandles(objectFilter); if
-				 * (factHandles != null && !factHandles.isEmpty()) { for
-				 * (FactHandle factHandle : factHandles) { commands.add(new
-				 * RetractCommand(factHandle)); } if
-				 * (LOGGER_PERFORMANCE.isDebugEnabled())
-				 * stopWatch.lap("KnowledgeSessionService",
-				 * "After Retract Step [" + step.getBeanName() + "/" +
-				 * step.getClass().getSimpleName() + "] command(s) to retract "
-				 * + factHandles.size() + " facts added"); }
-				 */
-
-				// }
 
 				// Set update map if new, check if needs update if not
 				boolean update = false;
@@ -376,10 +339,12 @@ public class PseudoStatelessKnowledgeSessionService extends
 							+ message.toString() + "]", e);
 		} finally {
 			try {
-				if (poolSize != 0) {
+				if (poolSize > 0) {
 					pool.returnObject(knowledgeSession);
 				} else {
-					knowledgeSession.dispose();
+					if(knowledgeSession != null){
+						knowledgeSession.dispose();
+					}
 				}
 			} catch (Exception e) {
 				LOGGER.error(

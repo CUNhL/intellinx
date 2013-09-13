@@ -147,9 +147,6 @@ public class PseudoStatelessKnowledgeSessionFactory extends
 					}
 				}
 				return;
-				// for(FactHandle fh: session.getFactHandles()){
-				// session.retract(fh);
-				// }
 			}
 		}
 		if (LOGGER.isWarnEnabled()) {

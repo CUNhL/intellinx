@@ -348,14 +348,6 @@ public class StepUtil {
 					}
 				}
 
-				/*if (object instanceof Collection<?>) {
-					commands.add(CommandFactory.newInsertElements(
-							(Collection<?>) object, step.getBeanName(), true,
-							null));
-				} else {
-					commands.add(CommandFactory.newInsert(object,
-							step.getBeanName()));
-				}*/
 				if (object instanceof Collection<?>) {
 					commands.add(CommandFactory.newInsertElements(
 							(Collection<?>) object, null, false,
