@@ -5,18 +5,18 @@ import org.drools.runtime.ObjectFilter;
 /**
  * Filters Objects by Identifier
  */
-public class IdentifierObjectFilter implements ObjectFilter {
+public class IdentifierlessObjectFilter implements ObjectFilter {
 
-	private String identifier;
+	//private String identifier;
 
 	/**
 	 * The Allowed Identifier
 	 * 
 	 * @param identifier
 	 */
-	public IdentifierObjectFilter(String identifier) {
-		this.identifier = identifier;
-	}
+//	public IdentifierObjectFilter(String identifier) {
+//		this.identifier = identifier;
+//	}
 
 	/**
 	 * Returning true means the Iterator accepts, and thus returns, the current
@@ -35,11 +35,13 @@ public class IdentifierObjectFilter implements ObjectFilter {
 		 */
 
 		
-		return IDroolsFact.class.isAssignableFrom(object.getClass())
-				&& this.identifier != null
-				&& this.identifier.equals(((IDroolsFact) object)
-						.getDroolsIdentifier());
+//		return IDroolsFact.class.isAssignableFrom(object.getClass())
+//				&& this.identifier != null
+//				&& this.identifier.equals(((IDroolsFact) object)
+//						.getDroolsIdentifier());
 		
+		return !IDroolsFact.class.isAssignableFrom(object.getClass())
+				|| ((IDroolsFact) object).getDroolsIdentifier() == null;
 	}
 
 }

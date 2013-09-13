@@ -21,13 +21,13 @@ import org.springframework.beans.factory.InitializingBean;
  * @author Renato Mendes
  * 
  */
-public class KnowledgeSessionFactory extends
+public class PseudoStatelessKnowledgeSessionFactory extends
 		BasePoolableObjectFactory<StatefulKnowledgeSession> implements
 		InitializingBean, BeanNameAware,
 		PoolableObjectFactory<StatefulKnowledgeSession> {
 
 	private static final Logger LOGGER = LoggerFactory
-			.getLogger(KnowledgeSessionFactory.class);
+			.getLogger(PseudoStatelessKnowledgeSessionFactory.class);
 
 	private String beanName;
 
@@ -78,8 +78,6 @@ public class KnowledgeSessionFactory extends
 	public void passivateObject(StatefulKnowledgeSession knowledgeSession)
 			throws Exception {
 
-		// TODO remove globals? knowledgeSession.getGlobals()
-
 		if (LOGGER.isTraceEnabled())
 			LOGGER.trace("Passivate new knowledgeSession");
 
@@ -94,7 +92,6 @@ public class KnowledgeSessionFactory extends
 
 		activeMap.remove(knowledgeSession.getId());
 		knowledgeSession.dispose();
-		// TODO finish
 
 		super.destroyObject(knowledgeSession);
 	}
@@ -132,7 +129,7 @@ public class KnowledgeSessionFactory extends
 	/**
 	 * 
 	 */
-	public void clean(int sessionId) {
+	public void removeSession(int sessionId) {
 		for (StatefulKnowledgeSession session : knowledgeBase
 				.getStatefulKnowledgeSessions()) {
 			if (session.getId() == sessionId) {
@@ -142,6 +139,7 @@ public class KnowledgeSessionFactory extends
 				}
 				try {
 					session.dispose();
+					activeMap.remove(sessionId);
 				} catch (Exception e) {
 					if (LOGGER.isWarnEnabled()) {
 						LOGGER.warn("Exception disposing of session "
@@ -163,7 +161,7 @@ public class KnowledgeSessionFactory extends
 	/**
 	 * 
 	 */
-	public void cleanExprired() {
+	public void removeAllExpiredSessions() {
 		if (LOGGER.isWarnEnabled()) {
 			LOGGER.warn("Disposing of all knowledgeBase sessions not in pool");
 		}
@@ -182,6 +180,12 @@ public class KnowledgeSessionFactory extends
 				}
 			}
 		}
+	}
+	
+	public StatefulKnowledgeSession getNewStatefulKnowledgeSession() throws Exception {
+		StatefulKnowledgeSession session = knowledgeBase
+				.newStatefulKnowledgeSession();
+		return session;
 	}
 
 	public final KnowledgeBase getKnowledgeBase() {

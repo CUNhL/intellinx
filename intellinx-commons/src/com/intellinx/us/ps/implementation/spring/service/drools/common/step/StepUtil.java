@@ -22,6 +22,8 @@ import org.springframework.util.Assert;
 
 import com.intellinx.us.ps.implementation.spring.service.common.cache.IApplicationCache;
 import com.intellinx.us.ps.implementation.spring.service.drools.stateful.IDroolsFact;
+import com.intellinx.us.ps.implementation.spring.service.drools.stateful.PseudoStatelessKnowledgeSessionService;
+import com.intellinx.us.ps.implementation.spring.service.drools.stateless.KnowledgeSessionService;
 
 /**
  * 
@@ -101,7 +103,7 @@ public class StepUtil {
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public boolean createBatchExecutionCommandFromCache(
-			com.intellinx.us.ps.implementation.spring.service.drools.stateless.KnowledgeSessionService service,
+			KnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message, AbstractStep step)
 			throws SecurityException, IllegalArgumentException,
 			NoSuchMethodException, IllegalAccessException,
@@ -135,7 +137,7 @@ public class StepUtil {
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public boolean createBatchExecutionCommandFromCache(
-			com.intellinx.us.ps.implementation.spring.service.drools.stateful.KnowledgeSessionService service,
+			PseudoStatelessKnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message, AbstractStep step)
 			throws SecurityException, IllegalArgumentException,
 			NoSuchMethodException, IllegalAccessException,
@@ -211,7 +213,7 @@ public class StepUtil {
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void createBatchExecutionCommand(
-			com.intellinx.us.ps.implementation.spring.service.drools.stateful.KnowledgeSessionService service,
+			PseudoStatelessKnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message,
 			EvaluationContext evaluationContext, HqlStep step,
 			EntityManagerFactory entityManagerFactory)
@@ -287,7 +289,7 @@ public class StepUtil {
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public void createBatchExecutionCommand(
-			com.intellinx.us.ps.implementation.spring.service.drools.stateful.KnowledgeSessionService service,
+			PseudoStatelessKnowledgeSessionService service,
 			List<Command<?>> commands, Message<?> message,
 			EvaluationContext context, ExpressionStep step,
 			EntityManagerFactory entityManagerFactory)

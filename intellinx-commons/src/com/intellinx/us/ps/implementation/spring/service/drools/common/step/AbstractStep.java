@@ -18,6 +18,8 @@ public abstract class AbstractStep implements BeanNameAware {
 	
 	private Type type;
 	
+	private int updateInterval = 0; //in minutes
+	
 //	private String factClass;
 
 	private String parameter;
@@ -84,5 +86,12 @@ public abstract class AbstractStep implements BeanNameAware {
 		this.type = type;
 	}
 
+	public int getUpdateInterval() {
+		return updateInterval;
+	}
+
+	public void setUpdateInterval(int updateInterval) {
+		this.updateInterval = updateInterval;
+	}
 	
 }

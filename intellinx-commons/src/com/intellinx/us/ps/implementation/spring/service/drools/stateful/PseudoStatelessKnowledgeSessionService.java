@@ -3,7 +3,9 @@ package com.intellinx.us.ps.implementation.spring.service.drools.stateful;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.pool.ObjectPool;
 import org.apache.commons.pool.impl.StackObjectPool;
@@ -48,19 +50,20 @@ import com.intellinx.us.ps.implementation.spring.service.drools.common.step.Type
  * @author RenatoM
  * 
  */
-public class KnowledgeSessionService extends AbstractDroolsService implements
-		BeanNameAware, Transformer, InitializingBean {
+public class PseudoStatelessKnowledgeSessionService extends
+		AbstractDroolsService implements BeanNameAware, Transformer,
+		InitializingBean {
 
 	private static final Logger LOGGER_PERFORMANCE = LoggerFactory
 			.getLogger("org.perf4j.TimingLogger");
 
 	private static final Logger LOGGER = LoggerFactory
-			.getLogger(KnowledgeSessionService.class);
+			.getLogger(PseudoStatelessKnowledgeSessionService.class);
 
 	@Autowired
 	private ApplicationContext applicationContext;
 
-	private KnowledgeSessionFactory knowledgeSessionFactory;
+	private PseudoStatelessKnowledgeSessionFactory PseudoStatelessKnowledgeSessionFactory;
 
 	private ObjectPool<StatefulKnowledgeSession> pool;
 
@@ -74,13 +77,17 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	private Expression calculatedWhenExpression;
 
-	private int poolSize;
+	private int poolSize = 0;
 
 	private StepUtil stepUtil;
 
-	private int updateInterval = 0;
+	private int disposeInterval = 0;
 
-	private Date lastUpdated;
+	private long lastDisposed;
+
+	private long startMilli;
+
+	private Map<Integer, Map<String, Integer>> updateMap;
 
 	/**
 	 * 
@@ -88,11 +95,11 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 	@Override
 	public void afterPropertiesSet() throws Exception {
 
-		Assert.notNull(knowledgeSessionFactory);
+		Assert.notNull(PseudoStatelessKnowledgeSessionFactory);
 		Assert.notNull(getBeanName(), "Bean Name is required");
 		Assert.notNull(applicationContext);
-		Assert.isTrue(poolSize != 0,
-				"The attribute pool size shall be provided");
+		// Assert.isTrue(poolSize != 0,
+		// "The attribute pool size shall be provided");
 
 		stepUtil = new StepUtil(new SpelExpressionParser());
 
@@ -103,15 +110,11 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 				stepUtil.prepare(step);
 
+				Assert.notNull(step.getTarget(),
+						"Target is required");
 				if (step.getTarget() == Target.FACT) {
 					Assert.notNull(step.getType(),
 							"Type is required for steps with target FACT");
-					/*
-					 * if(step.getType() == Type.NEW){
-					 * Assert.notNull(step.getFactClass(),
-					 * "FactClass is required for steps with target FACT and type NEW"
-					 * ); }
-					 */
 				}
 				if (step instanceof HqlStep) {
 					stepUtil.prepare((HqlStep) step);
@@ -128,8 +131,10 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 		}
 
 		// Pool of Drools Sessions
-		pool = new StackObjectPool<StatefulKnowledgeSession>(
-				knowledgeSessionFactory, getPoolSize());
+		if (poolSize != 0) {
+			pool = new StackObjectPool<StatefulKnowledgeSession>(
+					PseudoStatelessKnowledgeSessionFactory, getPoolSize());
+		}
 
 		// Evaluation Context
 		StandardEvaluationContext standardEvaluationContext = new StandardEvaluationContext();
@@ -138,7 +143,12 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 		evaluationContext = standardEvaluationContext;
 
-		lastUpdated = new Date();
+		if (disposeInterval != 0) {
+			lastDisposed = new Date().getTime();
+		}
+
+		startMilli = new Date().getTime();
+		updateMap = new HashMap<Integer, Map<String, Integer>>();
 
 	}
 
@@ -165,16 +175,22 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 		try {
 
-			// Check if time expired and invalidate pool's map
-			if (updateInterval > 0) {
-				Date tempDate = new Date();
-				if (tempDate.getTime() - lastUpdated.getTime() > updateInterval * 60000) {
-					knowledgeSessionFactory.invalidatePool();
-					lastUpdated = tempDate;
-				}
-			}
+			if (poolSize != 0) {
+				// Check if time expired and invalidate pool's map
+				if (disposeInterval > 0) {
+					Date tempDate = new Date();
+					if (tempDate.getTime() - lastDisposed > disposeInterval * 60000) {
+						PseudoStatelessKnowledgeSessionFactory.invalidatePool();
+						lastDisposed = tempDate.getTime();
 
-			knowledgeSession = pool.borrowObject();
+						updateMap.clear();
+					}
+				}
+				knowledgeSession = pool.borrowObject();
+			} else {
+				knowledgeSession = PseudoStatelessKnowledgeSessionFactory
+						.getNewStatefulKnowledgeSession();
+			}
 
 			List<Command<?>> commands = new ArrayList<Command<?>>();
 
@@ -182,8 +198,9 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 					.getGlobals()).getGlobals().length == 0);
 
 			if (!isNewSession) {
-				// retract all but target fact type update from previous runs
-				ObjectFilter objectFilter = new IdentifierObjectFilter();
+				// retract all but target type update facts from previous
+				// runs
+				ObjectFilter objectFilter = new IdentifierlessObjectFilter();
 				Collection<FactHandle> factHandles = knowledgeSession
 						.getFactHandles(objectFilter);
 				if (factHandles != null && !factHandles.isEmpty()) {
@@ -197,30 +214,15 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 				}
 			}
 
+			Long currentMilli = new Date().getTime();
+
 			for (AbstractStep step : steps) {
 
 				// if(!isNewSession && step.getType() == Type.NEW &&
 				// step.getTarget() == Target.FACT){
-				// retract specific classes from previous runs
-				/*
-				 * if(!(step instanceof ExpressionStep)){ LOGGER.error(
-				 * "Can only retract ExpressionSteps. Non expression steps cannot be set to target FACT and type NEW. Returning."
-				 * ); return message; }
-				 */
 
-				/*
-				 * Object object =
-				 * ((ExpressionStep)step).getExpressionsParsed().
-				 * getValue(evaluationContext, message); if(object instanceof
-				 * Collection<?>){ Collection<?> collection = (Collection<?>)
-				 * object; if(collection.isEmpty()){ //screwed object = null; }
-				 * else{ object = collection.iterator().next(); } } if(object !=
-				 * null){ ObjectFilter objectFilter = new
-				 * ClassObjectFilter(object.getClass()); commands.add(new
-				 * GetObjectsCommand(objectFilter));//can't tell from doc if
-				 * this retracts or not. I'm hoping does. }
-				 */
-
+				// retract specific classes from previous runs using passed
+				// class types. Class types should be unique
 				/*
 				 * ObjectFilter objectFilter = new
 				 * ClassObjectFilter(Class.forName(step.getFactClass()));
@@ -231,6 +233,8 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 				 * RetractCommand(factHandle)); } }
 				 */
 
+				// retract specific classes from previous runs using interface.
+				// Won't work on facts added during execution
 				/*
 				 * ObjectFilter objectFilter = new IdentifierObjectFilter(
 				 * step.getBeanName()); Collection<FactHandle> factHandles =
@@ -247,8 +251,64 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 				// }
 
+				// Set update map if new, check if needs update if not
+				boolean update = false;
+				if (step.getType() == Type.UPDATE
+						&& step.getTarget() == Target.FACT
+						&& step.getUpdateInterval() > 0) {
+					if (isNewSession) {
+						if (updateMap.containsKey(knowledgeSession.getId())) {
+							Map<String, Integer> tempMap = updateMap
+									.get(knowledgeSession.getId());
+							tempMap.put(step.getBeanName(),
+									(int) ((currentMilli - startMilli) / (step
+											.getUpdateInterval() * 60000)));
+						} else {
+							Map<String, Integer> tempMap = new HashMap<String, Integer>();
+							tempMap.put(step.getBeanName(),
+									(int) ((currentMilli - startMilli) / (step
+											.getUpdateInterval() * 60000)));
+							updateMap.put(knowledgeSession.getId(), tempMap);
+						}
+					} else {
+						int lap = updateMap.get(knowledgeSession.getId()).get(
+								step.getBeanName());
+						if ((int) ((currentMilli - startMilli) / (step
+								.getUpdateInterval() * 60000)) > lap) {
+							// update lap, retract specific facts, set to insert
+							// facts
+							updateMap.get(knowledgeSession.getId()).put(
+									step.getBeanName(),
+									(int) ((currentMilli - startMilli) / (step
+											.getUpdateInterval() * 60000)));
+							ObjectFilter objectFilter = new IdentifierObjectFilter(
+									step.getBeanName());
+							Collection<FactHandle> factHandles = knowledgeSession
+									.getFactHandles(objectFilter);
+							if (factHandles != null && !factHandles.isEmpty()) {
+								for (FactHandle factHandle : factHandles) {
+									commands.add(new RetractCommand(factHandle));
+								}
+								if (LOGGER_PERFORMANCE.isDebugEnabled())
+									stopWatch
+											.lap("KnowledgeSessionService",
+													"After Retract Step ["
+															+ step.getBeanName()
+															+ "/"
+															+ step.getClass()
+																	.getSimpleName()
+															+ "] added "
+															+ factHandles
+																	.size()
+															+ " command(s) to retract facts");
+							}
+							update = true;
+						}
+					}
+				}
+
 				if (isNewSession || step.getType() == Type.NEW
-						|| step.getTarget() == Target.GLOBALS) {
+						|| step.getTarget() == Target.GLOBALS || update) {
 
 					if (!stepUtil.createBatchExecutionCommandFromCache(this,
 							commands, message, step)) {
@@ -287,7 +347,8 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 				stopWatch.lap("KnowledgeSessionService",
 						"Transform-After execute command");
 
-			// retract specific facts from previous run
+			// retract specific facts from result set using factHandles. Could
+			// be problematic if fail before results returned.
 			/*
 			 * commands.clear(); for (AbstractStep step : steps) { if
 			 * (!isNewSession && step.getType() == Type.NEW && step.getTarget()
@@ -315,10 +376,14 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 							+ message.toString() + "]", e);
 		} finally {
 			try {
-				pool.returnObject(knowledgeSession);
+				if (poolSize != 0) {
+					pool.returnObject(knowledgeSession);
+				} else {
+					knowledgeSession.dispose();
+				}
 			} catch (Exception e) {
 				LOGGER.error(
-						"Error returning session to the pool for the message ["
+						"Error returning session to the pool, or disposing of session, for the message ["
 								+ message.toString() + "]", e);
 			}
 		}
@@ -330,13 +395,13 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	}
 
-	public KnowledgeSessionFactory getKnowledgeSessionFactory() {
-		return knowledgeSessionFactory;
+	public PseudoStatelessKnowledgeSessionFactory getPseudoStatelessKnowledgeSessionFactory() {
+		return PseudoStatelessKnowledgeSessionFactory;
 	}
 
-	public void setKnowledgeSessionFactory(
-			KnowledgeSessionFactory knowledgeSessionFactory) {
-		this.knowledgeSessionFactory = knowledgeSessionFactory;
+	public void setPseudoStatelessKnowledgeSessionFactory(
+			PseudoStatelessKnowledgeSessionFactory PseudoStatelessKnowledgeSessionFactory) {
+		this.PseudoStatelessKnowledgeSessionFactory = PseudoStatelessKnowledgeSessionFactory;
 	}
 
 	public ApplicationContext getApplicationContext() {
@@ -371,12 +436,12 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 		this.poolSize = poolSize;
 	}
 
-	public int getUpdateInterval() {
-		return updateInterval;
+	public int getDisposeInterval() {
+		return disposeInterval;
 	}
 
-	public void setUpdateInterval(int updateInterval) {
-		this.updateInterval = updateInterval;
+	public void setDisposeInterval(int disposeInterval) {
+		this.disposeInterval = disposeInterval;
 	}
 
 }
