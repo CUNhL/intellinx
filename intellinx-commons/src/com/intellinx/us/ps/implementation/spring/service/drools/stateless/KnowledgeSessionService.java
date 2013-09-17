@@ -7,7 +7,10 @@ import org.apache.commons.pool.ObjectPool;
 import org.apache.commons.pool.impl.StackObjectPool;
 import org.drools.command.Command;
 import org.drools.command.CommandFactory;
+import org.drools.command.runtime.rule.FireAllRulesCommand;
+import org.drools.command.runtime.rule.HaltCommand;
 import org.drools.runtime.CommandExecutor;
+import org.drools.runtime.StatefulKnowledgeSession;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.Logger;
@@ -69,6 +72,8 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 	private StepUtil stepUtil;
 
 	private boolean destroyAfterUsing;
+
+	private boolean haltAfterExecution;
 
 	/**
 	 * 
@@ -154,11 +159,13 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 						stepUtil.createBatchExecutionCommand(this, commands,
 								message, evaluationContext, (HqlStep) step,
 								getEntityManagerFactory());
-					} else {
+					} else if (step instanceof ExpressionStep) {
 						stepUtil.createBatchExecutionCommand(this, commands,
 								message, evaluationContext,
 								(ExpressionStep) step,
 								getEntityManagerFactory());
+					} else {
+						LOGGER.error("Not implemented");
 					}
 
 				}
@@ -171,6 +178,13 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 			}
 
 			// Execute the commands prepared
+
+			if (knowledgeSession instanceof StatefulKnowledgeSession) {
+				commands.add(new FireAllRulesCommand());
+				if (haltAfterExecution)
+					commands.add(new HaltCommand());
+			}
+
 			knowledgeSession
 					.execute(CommandFactory.newBatchExecution(commands));
 
@@ -250,6 +264,14 @@ public class KnowledgeSessionService extends AbstractDroolsService implements
 
 	public void setDestroyAfterUsing(boolean destroyAfterUsing) {
 		this.destroyAfterUsing = destroyAfterUsing;
+	}
+
+	public boolean isHaltAfterExecution() {
+		return haltAfterExecution;
+	}
+
+	public void setHaltAfterExecution(boolean haltAfterExecution) {
+		this.haltAfterExecution = haltAfterExecution;
 	}
 
 }

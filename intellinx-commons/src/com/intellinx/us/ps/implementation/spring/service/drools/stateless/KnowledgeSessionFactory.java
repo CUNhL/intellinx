@@ -13,7 +13,6 @@ import org.drools.logger.KnowledgeRuntimeLogger;
 import org.drools.logger.KnowledgeRuntimeLoggerFactory;
 import org.drools.runtime.CommandExecutor;
 import org.drools.runtime.StatefulKnowledgeSession;
-import org.drools.runtime.StatelessKnowledgeSession;
 import org.drools.runtime.rule.FactHandle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +41,8 @@ public class KnowledgeSessionFactory extends
 	private String logfolder;
 
 	private KnowledgeSessionFactoryMode mode;
+
+	private boolean dispose;
 
 	/**
 	 * 
@@ -97,11 +98,6 @@ public class KnowledgeSessionFactory extends
 			for (FactHandle factHandle : session.getFactHandles()) {
 				session.retract(factHandle);
 			}
-			// Clean Globals
-			// Globals aGlobals;
-			// for (Global global : session.getGlobals().) {
-			// session.retract(factHandle);
-			// }
 		}
 
 		super.passivateObject(knowledgeSession);
@@ -112,15 +108,9 @@ public class KnowledgeSessionFactory extends
 	 */
 	@Override
 	public void destroyObject(CommandExecutor obj) throws Exception {
-		//
-		if (obj instanceof StatefulKnowledgeSession) {
-			StatefulKnowledgeSession session = (StatefulKnowledgeSession) obj;
-			// Clean Dispose
-			session.dispose();
-		} else if (obj instanceof StatelessKnowledgeSession) {
-
+		if (obj instanceof StatefulKnowledgeSession && dispose) {
+			((StatefulKnowledgeSession) obj).dispose();
 		}
-
 		super.destroyObject(obj);
 	}
 
@@ -187,6 +177,68 @@ public class KnowledgeSessionFactory extends
 
 	public void setMode(KnowledgeSessionFactoryMode mode) {
 		this.mode = mode;
+	}
+
+	/**
+	 * 
+	 * @param sessionId
+	 */
+	public void clean(int sessionId) {
+		for (StatefulKnowledgeSession session : knowledgeBase
+				.getStatefulKnowledgeSessions()) {
+			if (session.getId() == sessionId) {
+				if (LOGGER.isWarnEnabled()) {
+					LOGGER.warn("Found session " + sessionId
+							+ " in knowlegeBase's sessions. Removing.");
+				}
+				try {
+					session.dispose();
+				} catch (Exception e) {
+					if (LOGGER.isWarnEnabled()) {
+						LOGGER.warn("Exception disposing of session "
+								+ sessionId, e);
+					}
+				}
+				return;
+			}
+		}
+		if (LOGGER.isWarnEnabled()) {
+			LOGGER.warn("Session " + sessionId
+					+ " was NOT found in knowlegeBase's sessions.");
+		}
+	}
+
+	/**
+	 * 
+	 */
+	public void cleanExprired() {
+		if (LOGGER.isWarnEnabled()) {
+			LOGGER.warn("Disposing of all "
+					+ knowledgeBase.getStatefulKnowledgeSessions().size()
+					+ " in the knowledgeBase");
+		}
+		for (StatefulKnowledgeSession session : knowledgeBase
+				.getStatefulKnowledgeSessions()) {
+			try {
+				LOGGER.warn("Disposing session " + session.getId());
+				session.dispose();
+			} catch (Exception e) {
+				if (LOGGER.isWarnEnabled()) {
+					LOGGER.warn(
+							"Exception disposing of session " + session.getId(),
+							e);
+				}
+			}
+
+		}
+	}
+
+	public boolean isDispose() {
+		return dispose;
+	}
+
+	public void setDispose(boolean dispose) {
+		this.dispose = dispose;
 	}
 
 }

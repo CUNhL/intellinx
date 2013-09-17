@@ -84,31 +84,31 @@ public class AbstractEntity implements Serializable, ICreateInfo, IModifyInfo,
 	}
 
 	public Long getId() {
-		/* 76 */return this.id;
+		return this.id;
 	}
 
 	public void setId(Long id) {
-		/* 80 */this.id = id;
+		this.id = id;
 	}
 
 	public Date getCreated() {
-		/* 84 */return this.created;
+		return this.created;
 	}
 
 	public void setCreated(Date created) {
-		/* 88 */this.created = created;
+		this.created = created;
 	}
 
 	public Principal getCreatedBy() {
-		/* 92 */return this.createdBy;
+		return this.createdBy;
 	}
 
 	public void setCreatedBy(Principal createdBy) {
-		/* 96 */this.createdBy = createdBy;
+		this.createdBy = createdBy;
 	}
 
 	public Date getLastModified() {
-		/* 100 */return this.lastModified;
+		return this.lastModified;
 	}
 
 	public void setLastModified(Date lastModified) {
