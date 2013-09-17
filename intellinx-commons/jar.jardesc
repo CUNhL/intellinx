@@ -11,11 +11,11 @@
         </sealing>
     </manifest>
     <selectedElements exportClassFiles="true" exportJavaFiles="true" exportOutputFolder="false">
-        <file path="/intellinx-commons/package-descriptor.xml"/>
         <javaElement handleIdentifier="=intellinx-commons/schema"/>
+        <file path="/intellinx-commons/package-descriptor.xml"/>
         <file path="/intellinx-commons/.classpath"/>
-        <file path="/intellinx-commons/pom.xml"/>
         <javaElement handleIdentifier="=intellinx-commons/model"/>
+        <file path="/intellinx-commons/pom.xml"/>
         <file path="/intellinx-commons/.gitignore"/>
         <file path="/intellinx-commons/.project"/>
         <javaElement handleIdentifier="=intellinx-commons/src"/>
