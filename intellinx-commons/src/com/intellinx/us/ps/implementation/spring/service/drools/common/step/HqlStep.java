@@ -17,6 +17,6 @@ public class HqlStep extends AbstractStep {
 
 	public void setQuery(LoadDataQuery query) {
 		this.query = query;
-	}
+	}	
 
 }

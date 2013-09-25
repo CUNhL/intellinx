@@ -87,6 +87,8 @@ public class PseudoStatelessKnowledgeSessionService extends
 
 	private Map<Integer, Map<String, Integer>> updateMap;
 
+	private boolean useInterface;
+
 	/**
 	 * 
 	 */
@@ -97,7 +99,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 		Assert.notNull(getBeanName(), "Bean Name is required");
 		Assert.notNull(applicationContext);
 
-		stepUtil = new StepUtil(new SpelExpressionParser());
+		stepUtil = new StepUtil(new SpelExpressionParser(), useInterface);
 
 		// Prepare Steps
 		if (steps != null)
@@ -197,9 +199,20 @@ public class PseudoStatelessKnowledgeSessionService extends
 					.getGlobals()).getGlobals().length == 0);
 
 			if (!isNewSession) {
+
 				// retract all but target type update facts from previous
 				// runs
-				ObjectFilter objectFilter = new IdentifierlessObjectFilter();
+
+				if (LOGGER_PERFORMANCE.isDebugEnabled())
+					stopWatch.lap("KnowledgeSessionService",
+							"Before retracting");
+				ObjectFilter objectFilter;
+				if (!useInterface) {
+					objectFilter = new CollectionsDifferenceObjectFilter(
+							knowledgeSession.getObjects(), steps);
+				} else {
+					objectFilter = new IdentifierlessObjectFilter();
+				}
 				Collection<FactHandle> factHandles = knowledgeSession
 						.getFactHandles(objectFilter);
 				if (factHandles != null && !factHandles.isEmpty()) {
@@ -210,6 +223,10 @@ public class PseudoStatelessKnowledgeSessionService extends
 						stopWatch.lap("KnowledgeSessionService",
 								"After Retract, added " + factHandles.size()
 										+ " command(s) to retract facts");
+				} else {
+					if (LOGGER_PERFORMANCE.isDebugEnabled())
+						stopWatch.lap("KnowledgeSessionService",
+								"After retract, nothing needs removing");
 				}
 			}
 
@@ -247,8 +264,14 @@ public class PseudoStatelessKnowledgeSessionService extends
 									step.getBeanName(),
 									(int) ((currentMilli - startMilli) / (step
 											.getUpdateInterval() * 60000)));
-							ObjectFilter objectFilter = new IdentifierObjectFilter(
-									step.getBeanName());
+							ObjectFilter objectFilter;
+							if (useInterface) {
+								objectFilter = new IdentifierObjectFilter(
+										step.getBeanName());
+							} else {
+								objectFilter = new CollectionsDifferenceObjectFilter(
+										step);
+							}
 							Collection<FactHandle> factHandles = knowledgeSession
 									.getFactHandles(objectFilter);
 							if (factHandles != null && !factHandles.isEmpty()) {
@@ -386,6 +409,14 @@ public class PseudoStatelessKnowledgeSessionService extends
 
 	public void setDisposeInterval(int disposeInterval) {
 		this.disposeInterval = disposeInterval;
+	}
+
+	public boolean isUseInterface() {
+		return useInterface;
+	}
+
+	public void setUseInterface(boolean useInterface) {
+		this.useInterface = useInterface;
 	}
 
 }

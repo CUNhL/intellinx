@@ -1,5 +1,7 @@
 package com.intellinx.us.ps.implementation.spring.service.drools.common.step;
 
+import java.util.Collection;
+
 import org.springframework.beans.factory.BeanNameAware;
 import org.springframework.expression.Expression;
 
@@ -29,6 +31,10 @@ public abstract class AbstractStep implements BeanNameAware {
 	private Expression whenExpressionParsed;
 
 	private IApplicationCache<?> applicationCache;
+	
+	private Collection<?> objects;
+	
+	
 
 	public Target getTarget() {
 		return target;
@@ -93,5 +99,12 @@ public abstract class AbstractStep implements BeanNameAware {
 	public void setUpdateInterval(int updateInterval) {
 		this.updateInterval = updateInterval;
 	}
-	
+
+	public Collection<?> getObjects() {
+		return objects;
+	}
+
+	public void setObjects(Collection<?> objects) {
+		this.objects = objects;
+	}	
 }

@@ -3,6 +3,7 @@ package com.intellinx.us.ps.implementation.spring.service.drools.common.step;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
@@ -36,9 +37,16 @@ public class StepUtil {
 			.getLogger(StepUtil.class);
 
 	private SpelExpressionParser parser = null;
+	
+	private boolean useInterface;
 
 	public StepUtil(SpelExpressionParser parser) {
 		this.parser = parser;
+	}
+	
+	public StepUtil(SpelExpressionParser parser, boolean useInterface) {
+		this.parser = parser;
+		this.useInterface =useInterface;
 	}
 
 	/**
@@ -323,6 +331,21 @@ public class StepUtil {
 			case FACT:
 
 				if (stateful && step.getType() == Type.UPDATE) {
+					if(!useInterface){
+					if (object instanceof Collection<?>) {
+						commands.add(CommandFactory.newInsertElements(
+								(Collection<?>) object, null, false,
+								null));
+						step.setObjects((Collection<?>) object);
+					} else {
+						commands.add(CommandFactory.newInsert(object,
+								null, false, null));
+						HashSet<Object> set = new HashSet<Object>();
+						set.add(object);
+						step.setObjects(set);
+					}
+					}
+					else{
 					if (object instanceof Collection<?>) {
 						Iterator<?> iterator = ((Collection<?>) object).iterator();
 						while (iterator.hasNext()) {
@@ -345,6 +368,7 @@ public class StepUtil {
 							LOGGER.error("Stateful UPDATE fact data does not implement IDroolsFact, returning!!!!!");
 							return;
 						}
+					}
 					}
 				}
 
