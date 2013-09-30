@@ -229,7 +229,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 
 					for (Object o : knowledgeSession.getObjects()) {
 						if (!IDroolsFact.class.isAssignableFrom(o.getClass())
-								&& ((IDroolsFact) o).getDroolsIdentifier() == null) {
+								|| ((IDroolsFact) o).getDroolsIdentifier() == null) {
 							commands.add(new RetractCommand(knowledgeSession
 									.getFactHandle(o)));
 							count++;
