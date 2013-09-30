@@ -228,8 +228,8 @@ public class PseudoStatelessKnowledgeSessionService extends
 					// objectFilter = new IdentifierlessObjectFilter();
 
 					for (Object o : knowledgeSession.getObjects()) {
-						if (IDroolsFact.class.isAssignableFrom(o.getClass())
-								&& ((IDroolsFact) o).getDroolsIdentifier() != null) {
+						if (!IDroolsFact.class.isAssignableFrom(o.getClass())
+								&& ((IDroolsFact) o).getDroolsIdentifier() == null) {
 							commands.add(new RetractCommand(knowledgeSession
 									.getFactHandle(o)));
 							count++;
