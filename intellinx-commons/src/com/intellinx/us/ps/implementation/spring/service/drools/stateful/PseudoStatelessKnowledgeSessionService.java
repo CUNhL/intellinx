@@ -1,11 +1,12 @@
 package com.intellinx.us.ps.implementation.spring.service.drools.stateful;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.pool.ObjectPool;
 import org.apache.commons.pool.impl.StackObjectPool;
@@ -15,9 +16,7 @@ import org.drools.command.CommandFactory;
 import org.drools.command.runtime.rule.FireAllRulesCommand;
 import org.drools.command.runtime.rule.HaltCommand;
 import org.drools.command.runtime.rule.RetractCommand;
-import org.drools.runtime.ObjectFilter;
 import org.drools.runtime.StatefulKnowledgeSession;
-import org.drools.runtime.rule.FactHandle;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.Logger;
@@ -206,28 +205,57 @@ public class PseudoStatelessKnowledgeSessionService extends
 				if (LOGGER_PERFORMANCE.isDebugEnabled())
 					stopWatch.lap("KnowledgeSessionService",
 							"Before retracting");
-				ObjectFilter objectFilter;
+				// ObjectFilter objectFilter;
+				int count = 0;
 				if (!useInterface) {
-					objectFilter = new CollectionsDifferenceObjectFilter(
-							knowledgeSession.getObjects(), steps);
-				} else {
-					objectFilter = new IdentifierlessObjectFilter();
-				}
-				Collection<FactHandle> factHandles = knowledgeSession
-						.getFactHandles(objectFilter);
-				if (factHandles != null && !factHandles.isEmpty()) {
-					for (FactHandle factHandle : factHandles) {
-						commands.add(new RetractCommand(factHandle));
+					// objectFilter = new CollectionsDifferenceObjectFilter(
+					// knowledgeSession.getObjects(), steps);
+
+					Set<Object> objects = new HashSet<Object>();
+					objects.addAll(knowledgeSession.getObjects());
+					for (AbstractStep step : steps) {
+						if (step.getObjects() != null) {
+							objects.removeAll(step.getObjects());
+						}
 					}
-					if (LOGGER_PERFORMANCE.isDebugEnabled())
-						stopWatch.lap("KnowledgeSessionService",
-								"After Retract, added " + factHandles.size()
-										+ " command(s) to retract facts");
+					for(Object o : objects){
+						commands.add(new RetractCommand(knowledgeSession
+								.getFactHandle(o)));
+						count++;
+					}
+
 				} else {
-					if (LOGGER_PERFORMANCE.isDebugEnabled())
-						stopWatch.lap("KnowledgeSessionService",
-								"After retract, nothing needs removing");
+					// objectFilter = new IdentifierlessObjectFilter();
+
+					for (Object o : knowledgeSession.getObjects()) {
+						if (IDroolsFact.class.isAssignableFrom(o.getClass())
+								&& ((IDroolsFact) o).getDroolsIdentifier() != null) {
+							commands.add(new RetractCommand(knowledgeSession
+									.getFactHandle(o)));
+							count++;
+						}
+					}
+
 				}
+
+				if (LOGGER_PERFORMANCE.isDebugEnabled())
+					stopWatch.lap("KnowledgeSessionService", "After retract, added " + count + " retract commands");
+
+				// Collection<FactHandle> factHandles = knowledgeSession
+				// .getFactHandles(objectFilter);
+				// if (factHandles != null && !factHandles.isEmpty()) {
+				// for (FactHandle factHandle : factHandles) {
+				// commands.add(new RetractCommand(factHandle));
+				// }
+				// if (LOGGER_PERFORMANCE.isDebugEnabled())
+				// stopWatch.lap("KnowledgeSessionService",
+				// "After Retract, added " + factHandles.size()
+				// + " command(s) to retract facts");
+				// } else {
+				// if (LOGGER_PERFORMANCE.isDebugEnabled())
+				// stopWatch.lap("KnowledgeSessionService",
+				// "After retract, nothing needs removing");
+				// }
 			}
 
 			Long currentMilli = new Date().getTime();
@@ -264,33 +292,64 @@ public class PseudoStatelessKnowledgeSessionService extends
 									step.getBeanName(),
 									(int) ((currentMilli - startMilli) / (step
 											.getUpdateInterval() * 60000)));
-							ObjectFilter objectFilter;
+							//ObjectFilter objectFilter;
+							int count = 0;
 							if (useInterface) {
-								objectFilter = new IdentifierObjectFilter(
-										step.getBeanName());
-							} else {
-								objectFilter = new CollectionsDifferenceObjectFilter(
-										step);
-							}
-							Collection<FactHandle> factHandles = knowledgeSession
-									.getFactHandles(objectFilter);
-							if (factHandles != null && !factHandles.isEmpty()) {
-								for (FactHandle factHandle : factHandles) {
-									commands.add(new RetractCommand(factHandle));
+//								objectFilter = new IdentifierObjectFilter(
+//										step.getBeanName());
+								
+								for (Object o : knowledgeSession.getObjects()) {
+									if (IDroolsFact.class.isAssignableFrom(o.getClass())
+											&& ((IDroolsFact) o).getDroolsIdentifier().equals(step.getBeanName())) {
+										commands.add(new RetractCommand(knowledgeSession
+												.getFactHandle(o)));
+										count++;
+									}
 								}
-								if (LOGGER_PERFORMANCE.isDebugEnabled())
-									stopWatch
-											.lap("KnowledgeSessionService",
-													"After Retract Step ["
-															+ step.getBeanName()
-															+ "/"
-															+ step.getClass()
-																	.getSimpleName()
-															+ "] added "
-															+ factHandles
-																	.size()
-															+ " command(s) to retract facts");
+							} else {
+//								objectFilter = new CollectionsDifferenceObjectFilter(
+//										step);
+								
+								for (Object o : knowledgeSession.getObjects()) {
+									if (step.getObjects().contains(o)) {
+										commands.add(new RetractCommand(knowledgeSession
+												.getFactHandle(o)));
+										count++;
+									}
+								}
 							}
+							if (LOGGER_PERFORMANCE.isDebugEnabled())
+								stopWatch
+										.lap("KnowledgeSessionService",
+												"After Retract Step ["
+														+ step.getBeanName()
+														+ "/"
+														+ step.getClass()
+																.getSimpleName()
+														+ "] added "
+														+ count
+														+ " command(s) to retract facts");
+							
+							
+//							Collection<FactHandle> factHandles = knowledgeSession
+//									.getFactHandles(objectFilter);
+//							if (factHandles != null && !factHandles.isEmpty()) {
+//								for (FactHandle factHandle : factHandles) {
+//									commands.add(new RetractCommand(factHandle));
+//								}
+//								if (LOGGER_PERFORMANCE.isDebugEnabled())
+//									stopWatch
+//											.lap("KnowledgeSessionService",
+//													"After Retract Step ["
+//															+ step.getBeanName()
+//															+ "/"
+//															+ step.getClass()
+//																	.getSimpleName()
+//															+ "] added "
+//															+ factHandles
+//																	.size()
+//															+ " command(s) to retract facts");
+//							}
 							update = true;
 						}
 					}
