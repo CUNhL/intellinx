@@ -22,6 +22,7 @@ import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.util.Assert;
 
 import com.intellinx.us.ps.implementation.spring.service.common.cache.IApplicationCache;
+import com.intellinx.us.ps.implementation.spring.service.drools.stateful.FactRemovalMethod;
 import com.intellinx.us.ps.implementation.spring.service.drools.stateful.IDroolsFact;
 import com.intellinx.us.ps.implementation.spring.service.drools.stateful.PseudoStatelessKnowledgeSessionService;
 import com.intellinx.us.ps.implementation.spring.service.drools.stateless.KnowledgeSessionService;
@@ -32,21 +33,22 @@ import com.intellinx.us.ps.implementation.spring.service.drools.stateless.Knowle
  * 
  */
 public class StepUtil {
-	
+
 	private static final Logger LOGGER = LoggerFactory
 			.getLogger(StepUtil.class);
 
 	private SpelExpressionParser parser = null;
-	
-	private boolean useInterface;
+
+	private FactRemovalMethod factRemovalMethod;
 
 	public StepUtil(SpelExpressionParser parser) {
 		this.parser = parser;
 	}
-	
-	public StepUtil(SpelExpressionParser parser, boolean useInterface) {
+
+	public StepUtil(SpelExpressionParser parser,
+			FactRemovalMethod factRemovalMethod) {
 		this.parser = parser;
-		this.useInterface =useInterface;
+		this.factRemovalMethod = factRemovalMethod;
 	}
 
 	/**
@@ -111,11 +113,10 @@ public class StepUtil {
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public boolean createBatchExecutionCommandFromCache(
-			KnowledgeSessionService service,
-			List<Command<?>> commands, Message<?> message, AbstractStep step)
-			throws SecurityException, IllegalArgumentException,
-			NoSuchMethodException, IllegalAccessException,
-			InvocationTargetException {
+			KnowledgeSessionService service, List<Command<?>> commands,
+			Message<?> message, AbstractStep step) throws SecurityException,
+			IllegalArgumentException, NoSuchMethodException,
+			IllegalAccessException, InvocationTargetException {
 
 		// Check cache for the information to be added to the step
 		if (step.getApplicationCache() != null) {
@@ -331,54 +332,77 @@ public class StepUtil {
 			case FACT:
 
 				if (stateful && step.getType() == Type.UPDATE) {
-					if(!useInterface){
-					if (object instanceof Collection<?>) {
-						commands.add(CommandFactory.newInsertElements(
-								(Collection<?>) object, null, false,
-								null));
-						step.setObjects((Collection<?>) object);
-					} else {
-						commands.add(CommandFactory.newInsert(object,
-								null, false, null));
-						HashSet<Object> set = new HashSet<Object>();
-						set.add(object);
-						step.setObjects(set);
-					}
-					}
-					else{
-					if (object instanceof Collection<?>) {
-						Iterator<?> iterator = ((Collection<?>) object).iterator();
-						while (iterator.hasNext()) {
-							Object obj = iterator.next();
-							if(IDroolsFact.class.isInstance(obj)){
-								((IDroolsFact) obj).setDroolsIdentifier(step
-									.getBeanName());
+					if (factRemovalMethod
+							.equals(FactRemovalMethod.SAVE_OBJECTS)) {
+						if (object instanceof Collection<?>) {
+							commands.add(CommandFactory.newInsertElements(
+									(Collection<?>) object, null, false, null));
+							step.setObjects((Collection<?>) object);
+						} else {
+							commands.add(CommandFactory.newInsert(object, null,
+									false, null));
+							HashSet<Object> set = new HashSet<Object>();
+							set.add(object);
+							step.setObjects(set);
+						}
+					} else if (factRemovalMethod
+							.equals(FactRemovalMethod.INTERFACE)) {
+						if (object instanceof Collection<?>) {
+							Iterator<?> iterator = ((Collection<?>) object)
+									.iterator();
+							while (iterator.hasNext()) {
+								Object obj = iterator.next();
+								if (IDroolsFact.class.isInstance(obj)) {
+									((IDroolsFact) obj)
+											.setDroolsIdentifier(step
+													.getBeanName());
+								} else {
+									LOGGER.error("Stateful UPDATE fact data does not implement IDroolsFact, returning!!!!!");
+									return;
+								}
 							}
-							else{
+						} else {
+							if (IDroolsFact.class.isInstance(object)) {
+								((IDroolsFact) object).setDroolsIdentifier(step
+										.getBeanName());
+							} else {
 								LOGGER.error("Stateful UPDATE fact data does not implement IDroolsFact, returning!!!!!");
 								return;
 							}
 						}
-					} else {
-						if(IDroolsFact.class.isInstance(object)){
-						((IDroolsFact) object).setDroolsIdentifier(step
-								.getBeanName());
+
+						if (object instanceof Collection<?>) {
+							commands.add(CommandFactory.newInsertElements(
+									(Collection<?>) object, null, false,
+									null));
+						} else {
+							commands.add(CommandFactory.newInsert(object, null,
+									false, null));
+
 						}
-						else{
-							LOGGER.error("Stateful UPDATE fact data does not implement IDroolsFact, returning!!!!!");
-							return;
+					} else if (factRemovalMethod
+							.equals(FactRemovalMethod.ENTRYPOINTS)) {
+
+						if (object instanceof Collection<?>) {
+							commands.add(CommandFactory.newInsertElements(
+									(Collection<?>) object, null, false,
+									step.getBeanName()));
+						} else {
+							commands.add(CommandFactory.newInsert(object, null,
+									false, step.getBeanName()));
 						}
-					}
 					}
 				}
+				else{
+					if (object instanceof Collection<?>) {
+						commands.add(CommandFactory.newInsertElements(
+								(Collection<?>) object, null, false,
+								null));
+					} else {
+						commands.add(CommandFactory.newInsert(object, null,
+								false, null));
 
-				if (object instanceof Collection<?>) {
-					commands.add(CommandFactory.newInsertElements(
-							(Collection<?>) object, null, false,
-							null));
-				} else {
-					commands.add(CommandFactory.newInsert(object,
-							null, false, null));
+					}
 				}
 				break;
 			case GLOBALS:

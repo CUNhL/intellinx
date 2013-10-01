@@ -1,12 +1,11 @@
 package com.intellinx.us.ps.implementation.spring.service.drools.stateful;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.commons.pool.ObjectPool;
 import org.apache.commons.pool.impl.StackObjectPool;
@@ -16,7 +15,9 @@ import org.drools.command.CommandFactory;
 import org.drools.command.runtime.rule.FireAllRulesCommand;
 import org.drools.command.runtime.rule.HaltCommand;
 import org.drools.command.runtime.rule.RetractCommand;
+import org.drools.runtime.ObjectFilter;
 import org.drools.runtime.StatefulKnowledgeSession;
+import org.drools.runtime.rule.FactHandle;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.Logger;
@@ -86,7 +87,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 
 	private Map<Integer, Map<String, Integer>> updateMap;
 
-	private boolean useInterface;
+	private FactRemovalMethod factRemovalMethod = FactRemovalMethod.SAVE_OBJECTS;
 
 	/**
 	 * 
@@ -98,7 +99,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 		Assert.notNull(getBeanName(), "Bean Name is required");
 		Assert.notNull(applicationContext);
 
-		stepUtil = new StepUtil(new SpelExpressionParser(), useInterface);
+		stepUtil = new StepUtil(new SpelExpressionParser(), factRemovalMethod);
 
 		// Prepare Steps
 		if (steps != null)
@@ -205,57 +206,68 @@ public class PseudoStatelessKnowledgeSessionService extends
 				if (LOGGER_PERFORMANCE.isDebugEnabled())
 					stopWatch.lap("KnowledgeSessionService",
 							"Before retracting");
-				// ObjectFilter objectFilter;
 				int count = 0;
-				if (!useInterface) {
-					// objectFilter = new CollectionsDifferenceObjectFilter(
-					// knowledgeSession.getObjects(), steps);
-
-					Set<Object> objects = new HashSet<Object>();
-					objects.addAll(knowledgeSession.getObjects());
-					for (AbstractStep step : steps) {
-						if (step.getObjects() != null) {
-							objects.removeAll(step.getObjects());
+				if (factRemovalMethod.equals(FactRemovalMethod.SAVE_OBJECTS)) {
+					ObjectFilter objectFilter = new CollectionsDifferenceObjectFilter(
+							knowledgeSession.getObjects(), steps);
+					Collection<FactHandle> factHandles = knowledgeSession
+							.getFactHandles(objectFilter);
+					if (factHandles != null && !factHandles.isEmpty()) {
+						for (FactHandle factHandle : factHandles) {
+							commands.add(new RetractCommand(factHandle));
 						}
+						count = factHandles.size();
 					}
-					for(Object o : objects){
-						commands.add(new RetractCommand(knowledgeSession
-								.getFactHandle(o)));
+
+					// Set<Object> objects = new HashSet<Object>();
+					// objects.addAll(knowledgeSession.getObjects());
+					// for (AbstractStep step : steps) {
+					// if (step.getObjects() != null) {
+					// objects.removeAll(step.getObjects());
+					// }
+					// }
+					// for(Object o : objects){
+					// commands.add(new RetractCommand(knowledgeSession
+					// .getFactHandle(o))); //DOES NOT WORK WITH ASSERT-BEHAVIOR
+					// MODE OF EQUALITY!
+					// count++;
+					// }
+
+				} else if (factRemovalMethod
+						.equals(FactRemovalMethod.INTERFACE)) {
+					ObjectFilter objectFilter = new IdentifierlessObjectFilter();
+					Collection<FactHandle> factHandles = knowledgeSession
+							.getFactHandles(objectFilter);
+					if (factHandles != null && !factHandles.isEmpty()) {
+						for (FactHandle factHandle : factHandles) {
+							commands.add(new RetractCommand(factHandle));
+						}
+						count = factHandles.size();
+					}
+
+					// for (Object o : knowledgeSession.getObjects()) {
+					// if (!IDroolsFact.class.isAssignableFrom(o.getClass())
+					// || ((IDroolsFact) o).getDroolsIdentifier() == null) {
+					// commands.add(new RetractCommand(knowledgeSession
+					// .getFactHandle(o))); //DOES NOT WORK WITH ASSERT-BEHAVIOR
+					// MODE OF EQUALITY!
+					// count++;
+					// }
+					// }
+				} else if (factRemovalMethod
+						.equals(FactRemovalMethod.ENTRYPOINTS)) {
+					for (FactHandle fh : knowledgeSession
+							.getWorkingMemoryEntryPoint("DEFAULT")
+							.getFactHandles()) {
+						commands.add(new RetractCommand(fh));
 						count++;
 					}
-
-				} else {
-					// objectFilter = new IdentifierlessObjectFilter();
-
-					for (Object o : knowledgeSession.getObjects()) {
-						if (!IDroolsFact.class.isAssignableFrom(o.getClass())
-								|| ((IDroolsFact) o).getDroolsIdentifier() == null) {
-							commands.add(new RetractCommand(knowledgeSession
-									.getFactHandle(o)));
-							count++;
-						}
-					}
-
 				}
 
 				if (LOGGER_PERFORMANCE.isDebugEnabled())
-					stopWatch.lap("KnowledgeSessionService", "After retract, added " + count + " retract commands");
-
-				// Collection<FactHandle> factHandles = knowledgeSession
-				// .getFactHandles(objectFilter);
-				// if (factHandles != null && !factHandles.isEmpty()) {
-				// for (FactHandle factHandle : factHandles) {
-				// commands.add(new RetractCommand(factHandle));
-				// }
-				// if (LOGGER_PERFORMANCE.isDebugEnabled())
-				// stopWatch.lap("KnowledgeSessionService",
-				// "After Retract, added " + factHandles.size()
-				// + " command(s) to retract facts");
-				// } else {
-				// if (LOGGER_PERFORMANCE.isDebugEnabled())
-				// stopWatch.lap("KnowledgeSessionService",
-				// "After retract, nothing needs removing");
-				// }
+					stopWatch.lap("KnowledgeSessionService",
+							"After retract, added " + count
+									+ " retract commands");
 			}
 
 			Long currentMilli = new Date().getTime();
@@ -292,32 +304,71 @@ public class PseudoStatelessKnowledgeSessionService extends
 									step.getBeanName(),
 									(int) ((currentMilli - startMilli) / (step
 											.getUpdateInterval() * 60000)));
-							//ObjectFilter objectFilter;
+							// ObjectFilter objectFilter;
 							int count = 0;
-							if (useInterface) {
-//								objectFilter = new IdentifierObjectFilter(
-//										step.getBeanName());
-								
-								for (Object o : knowledgeSession.getObjects()) {
-									if (IDroolsFact.class.isAssignableFrom(o.getClass())
-											&& ((IDroolsFact) o).getDroolsIdentifier().equals(step.getBeanName())) {
-										commands.add(new RetractCommand(knowledgeSession
-												.getFactHandle(o)));
-										count++;
+							if (factRemovalMethod
+									.equals(FactRemovalMethod.INTERFACE)) {
+								ObjectFilter objectFilter = new IdentifierObjectFilter(
+										step.getBeanName());
+								Collection<FactHandle> factHandles = knowledgeSession
+										.getFactHandles(objectFilter);
+								if (factHandles != null
+										&& !factHandles.isEmpty()) {
+									for (FactHandle factHandle : factHandles) {
+										commands.add(new RetractCommand(
+												factHandle));
 									}
 								}
-							} else {
-//								objectFilter = new CollectionsDifferenceObjectFilter(
-//										step);
-								
-								for (Object o : knowledgeSession.getObjects()) {
-									if (step.getObjects().contains(o)) {
-										commands.add(new RetractCommand(knowledgeSession
-												.getFactHandle(o)));
-										count++;
+
+								// for (Object o :
+								// knowledgeSession.getObjects()) {
+								// if
+								// (IDroolsFact.class.isAssignableFrom(o.getClass())
+								// && ((IDroolsFact)
+								// o).getDroolsIdentifier().equals(step.getBeanName()))
+								// {
+								// commands.add(new
+								// RetractCommand(knowledgeSession
+								// .getFactHandle(o)));//DOES NOT WORK WITH
+								// ASSERT-BEHAVIOR MODE OF EQUALITY!
+								// count++;
+								// }
+								// }
+							} else if (factRemovalMethod
+									.equals(FactRemovalMethod.SAVE_OBJECTS)) {
+								ObjectFilter objectFilter = new CollectionsDifferenceObjectFilter(
+										step);
+								Collection<FactHandle> factHandles = knowledgeSession
+										.getFactHandles(objectFilter);
+								if (factHandles != null
+										&& !factHandles.isEmpty()) {
+									for (FactHandle factHandle : factHandles) {
+										commands.add(new RetractCommand(
+												factHandle));
 									}
+								}
+
+								// for (Object o :
+								// knowledgeSession.getObjects()) {
+								// if (step.getObjects().contains(o)) {
+								// commands.add(new
+								// RetractCommand(knowledgeSession
+								// .getFactHandle(o)));//DOES NOT WORK WITH
+								// ASSERT-BEHAVIOR MODE OF EQUALITY!
+								// count++;
+								// }
+								// }
+							} else if (factRemovalMethod
+									.equals(FactRemovalMethod.ENTRYPOINTS)) {
+								for (FactHandle fh : knowledgeSession
+										.getWorkingMemoryEntryPoint(
+												step.getBeanName())
+										.getFactHandles()) {
+									commands.add(new RetractCommand(fh));
+									count++;
 								}
 							}
+
 							if (LOGGER_PERFORMANCE.isDebugEnabled())
 								stopWatch
 										.lap("KnowledgeSessionService",
@@ -329,27 +380,7 @@ public class PseudoStatelessKnowledgeSessionService extends
 														+ "] added "
 														+ count
 														+ " command(s) to retract facts");
-							
-							
-//							Collection<FactHandle> factHandles = knowledgeSession
-//									.getFactHandles(objectFilter);
-//							if (factHandles != null && !factHandles.isEmpty()) {
-//								for (FactHandle factHandle : factHandles) {
-//									commands.add(new RetractCommand(factHandle));
-//								}
-//								if (LOGGER_PERFORMANCE.isDebugEnabled())
-//									stopWatch
-//											.lap("KnowledgeSessionService",
-//													"After Retract Step ["
-//															+ step.getBeanName()
-//															+ "/"
-//															+ step.getClass()
-//																	.getSimpleName()
-//															+ "] added "
-//															+ factHandles
-//																	.size()
-//															+ " command(s) to retract facts");
-//							}
+
 							update = true;
 						}
 					}
@@ -470,12 +501,12 @@ public class PseudoStatelessKnowledgeSessionService extends
 		this.disposeInterval = disposeInterval;
 	}
 
-	public boolean isUseInterface() {
-		return useInterface;
+	public FactRemovalMethod getFactRemovalMethod() {
+		return factRemovalMethod;
 	}
 
-	public void setUseInterface(boolean useInterface) {
-		this.useInterface = useInterface;
+	public void setFactRemovalMethod(FactRemovalMethod factRemovalMethod) {
+		this.factRemovalMethod = factRemovalMethod;
 	}
 
 }
