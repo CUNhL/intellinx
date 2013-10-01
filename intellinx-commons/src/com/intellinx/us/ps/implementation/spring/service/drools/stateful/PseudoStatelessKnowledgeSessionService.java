@@ -18,6 +18,7 @@ import org.drools.command.runtime.rule.RetractCommand;
 import org.drools.runtime.ObjectFilter;
 import org.drools.runtime.StatefulKnowledgeSession;
 import org.drools.runtime.rule.FactHandle;
+import org.drools.runtime.rule.WorkingMemoryEntryPoint;
 import org.perf4j.StopWatch;
 import org.perf4j.slf4j.Slf4JStopWatch;
 import org.slf4j.Logger;
@@ -256,11 +257,26 @@ public class PseudoStatelessKnowledgeSessionService extends
 					// }
 				} else if (factRemovalMethod
 						.equals(FactRemovalMethod.ENTRYPOINTS)) {
-					for (FactHandle fh : knowledgeSession
-							.getWorkingMemoryEntryPoint("DEFAULT")
-							.getFactHandles()) {
-						commands.add(new RetractCommand(fh));
-						count++;
+					List<WorkingMemoryEntryPoint> entryPoints = new ArrayList<WorkingMemoryEntryPoint>();
+					for(WorkingMemoryEntryPoint ep : knowledgeSession.getWorkingMemoryEntryPoints()){
+						boolean add = false;
+						if(ep.getFactCount() != 0){
+							add = true;
+							for(AbstractStep s : steps){
+								if(s.getBeanName().equals(ep.getEntryPointId()) && s.getTarget().equals(Target.FACT) && s.getType().equals(Type.UPDATE)){
+									add = false;
+								}
+							}
+						}
+						if(add){
+							entryPoints.add(ep);
+						}
+					}
+					for(WorkingMemoryEntryPoint ep : entryPoints){
+						for (FactHandle fh : ep.getFactHandles()) {
+							commands.add(new RetractCommand(fh));
+							count++;
+						}
 					}
 				}
 
